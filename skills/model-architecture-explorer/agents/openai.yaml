@@ -1,0 +1,4 @@
+interface:
+  display_name: "模型架构交互可视化"
+  short_description: "从模型源码生成可下钻、可查看算子与源码的交互架构网页"
+  default_prompt: "使用 $model-architecture-explorer，根据当前模型仓库的源码制作可点击展开、带张量形状和源码定位的架构网页。"
