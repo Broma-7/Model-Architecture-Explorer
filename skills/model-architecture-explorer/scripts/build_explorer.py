@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import base64
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -14,6 +15,7 @@ import warnings
 
 
 DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / 'assets' / 'explorer.html'
+KATEX_ASSETS = DEFAULT_TEMPLATE.parent / 'katex'
 
 
 def require(condition: bool, message: str) -> None:
@@ -143,6 +145,32 @@ def inject(html: str, element_id: str, payload: dict) -> str:
     return output
 
 
+def embed_math_assets(template: str) -> str:
+    """Bundle KaTeX, its MIT notice and fonts without runtime network requests."""
+    markers = ('<!-- KATEX_STYLES -->', '<!-- KATEX_SCRIPTS -->')
+    if not any(marker in template for marker in markers):
+        return template  # Preserve custom templates with their own math renderer.
+    require(all(template.count(marker) == 1 for marker in markers),
+            'Math-enabled templates need exactly one KATEX_STYLES and KATEX_SCRIPTS marker')
+    css = (KATEX_ASSETS / 'katex.min.css').read_text(encoding='utf-8')
+
+    def font_source(match: re.Match) -> str:
+        font = re.search(r'url\((fonts/[^)]+\.woff2)\)', match[0])
+        require(font is not None, 'Bundled KaTeX font is missing a WOFF2 source')
+        data = base64.b64encode((KATEX_ASSETS / font[1]).read_bytes()).decode('ascii')
+        return f'src:url(data:font/woff2;base64,{data}) format("woff2");'
+
+    css = re.sub(r'src:[^;]+;', font_source, css)
+    license_text = (KATEX_ASSETS / 'LICENSE').read_text(encoding='utf-8')
+    template = template.replace(markers[0], f'<style id="katex-styles">\n/* KaTeX 0.16.22\n{license_text}*/\n{css}\n</style>')
+    scripts = []
+    for filename in ('katex.min.js', 'contrib/auto-render.min.js'):
+        script = (KATEX_ASSETS / filename).read_text(encoding='utf-8')
+        script = re.sub(r'</script', r'<\\/script', script, flags=re.I)
+        scripts.append(f'<script>{script}</script>')
+    return template.replace(markers[1], '\n'.join(scripts))
+
+
 def build(root: Path, spec_path: Path, output: Path, template_path: Path) -> dict:
     root = root.resolve()
     spec_path, output, template_path = spec_path.resolve(), output.resolve(), template_path.resolve()
@@ -151,7 +179,7 @@ def build(root: Path, spec_path: Path, output: Path, template_path: Path) -> dic
     refs = validate_spec(spec)
     files, source_paths = snapshots(root, refs)
     require(output not in source_paths | {spec_path, template_path}, 'Output must not overwrite a source, spec, or template file')
-    template = template_path.read_text(encoding='utf-8')
+    template = embed_math_assets(template_path.read_text(encoding='utf-8'))
     spec.pop('revision', None)
     digest_input = json.dumps({'spec': spec, 'files': files, 'template': template}, ensure_ascii=False, sort_keys=True)
     spec['revision'] = hashlib.sha256(digest_input.encode()).hexdigest()[:12]

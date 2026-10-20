@@ -20,9 +20,9 @@
         "projection": {
           "title": "残差投影",
           "kind": "encoder",
-          "description": "输出为 skip(X) + MLP(LN(X))。",
-          "input": "[B, N, 768]",
-          "output": "[B, N, 256]",
+          "description": "输出为 \\(Y = \\operatorname{skip}(X) + \\operatorname{MLP}(\\operatorname{LN}(X))\\)。",
+          "input": "\\(X \\in \\mathbb{R}^{B \\times N \\times 768}\\)",
+          "output": "\\(Y \\in \\mathbb{R}^{B \\times N \\times 256}\\)",
           "params": [["宽度", "768 → 256"]],
           "source": {"file": "model.py", "symbol": "Projection.forward"},
           "expandTo": "projection-detail"
@@ -31,10 +31,10 @@
           "title": "线性 skip 分支",
           "kind": "encoder",
           "description": "与主分支独立计算，之后逐元素相加。",
-          "input": "[B, N, 768]",
-          "output": "[B, N, 256]",
+          "input": "\\(X \\in \\mathbb{R}^{B \\times N \\times 768}\\)",
+          "output": "\\(S \\in \\mathbb{R}^{B \\times N \\times 256}\\)",
           "params": [["bias", "False"]],
-          "operations": ["读取原始输入 X", "Linear(768, 256, bias=False)"],
+          "operations": ["读取原始输入 \\(X\\)", "\\[S = X W_{\\mathrm{skip}}^{\\mathsf{T}}, \\qquad W_{\\mathrm{skip}} \\in \\mathbb{R}^{256 \\times 768}\\]"],
           "source": {"file": "model.py", "symbol": "Projection.forward"}
         }
       },
@@ -106,11 +106,34 @@
 
 ## 构建与更新
 
+### LaTeX 公式
+
+`description`、`input`、`output`、`params` 的标签和值、`operations`、顶层 `subtitle` 及 profile 的 `assumptions` 支持混排文字与 LaTeX。行内用 `\(...\)` 或 `$...$`，独立公式用 `\[...\]` 或 `$$...$$`。只渲染显式分隔符中的公式，不会把旧 spec 中的普通字符串自动转换成数学表达式。
+
+JSON 必须转义反斜杠，例如下面的内容会显示带有转置、分式和根号的注意力公式：
+
+```json
+{
+  "description": "用 \\(d_k\\) 缩放点积，再沿键序列维度归一化。",
+  "operations": [
+    "\\[A = \\operatorname{softmax}\\left(\\frac{QK^{\\mathsf{T}}}{\\sqrt{d_k}} + M\\right)V\\]"
+  ]
+}
+```
+
+Python 构建 spec 时可用原始字符串，例如 `r"\(X \in \mathbb{R}^{B \times N \times D}\)"`，再由 `json.dumps` 转义。金额中的字面美元符号可写成 `\(\$5\)`（JSON 中为 `\\(\\$5\\)`）。字段不解析 Markdown / HTML，不要用反引号或代码围栏包住公式；代码标识、文件路径和源码快照按普通文本保留。SVG 中的标题、节点摘要、连线标签和图注也保留普通文本，以保证 SVG 导出独立可读；完整数学关系放进模块说明或计算步骤。
+
+KaTeX 0.16.22 的脚本、CSS 和 WOFF2 字体随 skill 分发，构建时内嵌到 HTML，不依赖 CDN 或模型运行环境的额外 Python 包。长的独立公式在其容器中横向滚动。解析失败会保留可见的错误表达式，交付前应通过浏览器检查并修正。
+
+### 运行构建器
+
 ```bash
 python <skill-dir>/scripts/build_explorer.py \
   --repo /path/to/repo --spec /path/to/spec.json --output /path/to/index.html
 ```
 
 要保留项目内的 UI 定制，先复制模板到输出项目，例如 `visualization/architecture/template.html`，通过 `--template` 指定。HTML 必须保留 `architecture-data` 与 `source-data` 两个 JSON script 元素。标准构建器每次由模板重建网页，直接修改已生成的 `index.html` 会在下次构建中丢失。
+
+沿用自带 LaTeX 渲染时，还要保留 `<head>` 中的 `<!-- KATEX_STYLES -->` 与应用脚本前的 `<!-- KATEX_SCRIPTS -->`；构建器会从已安装 skill 的资源目录填入完整内容。两个标记都没有的旧定制模板仍可构建，但需要自行接入数学渲染器。
 
 输出页面内嵌所引用的源码，适合离线打开。构建器计算基于 spec、模板与源码快照的版本摘要用于诊断页面是否更新；这不是模型 checkpoint hash。若需要层选择器、可调 batch、时间步动画等额外控件，依据实际模型扩展模板与 spec，并为新增操作做浏览器行为验证。

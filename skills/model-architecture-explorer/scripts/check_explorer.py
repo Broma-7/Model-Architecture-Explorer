@@ -5,9 +5,22 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 from tempfile import TemporaryDirectory
 import xml.etree.ElementTree as ET
+
+
+def check_math(page, root: str) -> int:
+    """Check rendered math in the current dynamic region, including parse failures."""
+    region = page.locator(root)
+    assert region.locator('.math-error, .katex-error').count() == 0, f'{root}: invalid LaTeX formula'
+    formula = re.compile(r'\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|(?<!\\)\$[^$\n]+?\$')
+    for element in region.locator('.math-text').all():
+        source = element.get_attribute('data-math-source') or ''
+        if formula.search(source):
+            assert element.locator('.katex math').count() > 0, f'{root}: LaTeX was not typeset: {source}'
+    return region.locator('.katex').count()
 
 
 def check(url: str, screenshot: Path | None = None, browser_path: str | None = None) -> dict:
@@ -26,13 +39,16 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
             page.wait_for_selector('#graph .node')
             spec = json.loads(page.locator('#architecture-data').text_content())
             sources = json.loads(page.locator('#source-data').text_content())
-            checked_nodes = checked_sources = checked_views = 0
+            checked_nodes = checked_sources = checked_views = checked_math = 0
+            checked_math += check_math(page, '#subtitle')
             for profile in spec['profiles']:
                 page.locator('#profile-picker').select_option(profile['id'])
+                checked_math += check_math(page, '#assumptions')
                 for view in profile['views']:
                     # Select by the exact stored id, even when labels overlap.
                     tab = page.locator('#tabs button').all()[next(i for i, v in enumerate(profile['views']) if v['id'] == view['id'])]
                     tab.click()
+                    checked_math += check_math(page, '#inspector-content')
                     assert tab.get_attribute('aria-selected') == 'true'
                     assert page.locator('#graph').get_attribute('viewBox') == f'0 0 {view["width"]} {view["height"]}'
                     overflow = page.evaluate('''() => {
@@ -58,6 +74,7 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                         module = profile['modules'][node['module']]
                         element = page.locator('#graph .node').nth(index)
                         element.click()
+                        checked_math += check_math(page, '#inspector-content')
                         checked_nodes += 1
                         target = module.get('expandTo')
                         if target and target != view['id']:
@@ -69,7 +86,12 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                         else:
                             assert page.locator('#operator-modal').is_visible(), f'{node["id"]}: details did not open'
                             assert page.locator('#operator-title').inner_text() == module['title'] + ' · 计算详情'
-                            assert page.locator('#operator-content .shape').all_text_contents() == [module['input'], module['output']]
+                            shapes = page.locator('#operator-content .shape')
+                            raw_shapes = [shape.locator('.math-text').get_attribute('data-math-source')
+                                          if shape.locator('.math-text').count() else shape.text_content()
+                                          for shape in shapes.all()]
+                            assert raw_shapes == [module['input'], module['output']]
+                            checked_math += check_math(page, '#operator-content')
                             page.locator('#operator-source').click()
                             assert page.locator('#source-modal').is_visible()
                             source = module['source']
@@ -83,6 +105,7 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                             element.focus()
                             page.keyboard.press('Enter')
                             assert page.locator('#operator-modal').is_visible(), f'{node["id"]}: keyboard failed'
+                            checked_math += check_math(page, '#operator-content')
                             page.keyboard.press('Escape')
             # Test real mobile clicks, including horizontal scrolling within the graph.
             page.set_viewport_size({'width': 390, 'height': 844})
@@ -98,7 +121,7 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=str(screenshot), full_page=True)
             assert not errors, f'Browser errors: {errors}'
-            return {'status': 'PASS', 'profiles': len(spec['profiles']), 'views': checked_views, 'node_clicks': checked_nodes, 'source_ranges': checked_sources, 'page_errors': errors}
+            return {'status': 'PASS', 'profiles': len(spec['profiles']), 'views': checked_views, 'node_clicks': checked_nodes, 'source_ranges': checked_sources, 'math_renders': checked_math, 'page_errors': errors}
         finally:
             browser.close()
 

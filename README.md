@@ -11,6 +11,7 @@ Model Architecture Explorer 是一个 Codex skill，适合希望理解模型实�
 - 根据实际实现确认结构，区分模型内计算与模型外预处理 / rollout。
 - 整体图单击模块进入内部细图，细图单击算子弹出计算详情。
 - 根据模型配置展示张量形状、归一化位置、残差连接、注意力掩码、注意力头数量与每个头的维度。
+- 说明、张量形状和计算步骤支持 LaTeX 数学排版，内嵌 KaTeX 与字体，离线打开也可显示分式、上下标和矩阵。
 - 将源码快照嵌入 HTML，离线查看并定位类 / 方法的原始行号。
 - 导出 SVG，支持缩放、键盘操作、移动端内部滚动与打印。
 - 提供可选 Playwright 工具，实际验证下钻、弹窗、源码范围与导出。
@@ -75,6 +76,7 @@ skills/model-architecture-explorer/
 ├── SKILL.md                      工作流程与交互要求
 ├── agents/openai.yaml            UI 元数据与示例调用
 ├── assets/explorer.html          离线 HTML / SVG 网页模板
+├── assets/katex/                 KaTeX 0.16.22、字体与 MIT 许可证
 ├── references/page-spec.md       声明式架构 spec 的格式
 └── scripts/
     ├── build_explorer.py         校验 spec 并嵌入源码快照
@@ -84,6 +86,8 @@ skills/model-architecture-explorer/
 ## 单独运行构建工具
 
 构建器使用 Python 3.10+ 标准库，无需安装模型依赖或加载模型权重。
+
+数学内容在 spec 中使用 `\\(...\\)`（行内）或 `\\[...\\]`（独立公式），这是 JSON 转义后的写法。模板会在检查器、详情弹窗和配置切换后渲染公式；已有 spec 的普通文本公式需要按 [公式说明](skills/model-architecture-explorer/references/page-spec.md#latex-公式) 改写后重新构建。
 
 先按照 [spec 说明](skills/model-architecture-explorer/references/page-spec.md) 编写已经核对的结构数据，然后运行：
 
