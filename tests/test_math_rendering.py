@@ -36,6 +36,18 @@ class MathRenderingTests(unittest.TestCase):
         cls.spec = json.loads(reference.split('```json\n', 1)[1].split('\n```', 1)[0])
         cls.spec['subtitle'] = r'输入张量 \(X \in \mathbb{R}^{B \times N \times D}\)'
         profile = cls.spec['profiles'][0]
+        profile['dimensions'] = {'N': 16, 'D': 256}
+        profile['controls'] = [{'id': 'B', 'label': 'Batch', 'value': 1, 'min': 1, 'max': 8}]
+        profile['stats'] = [{'label': 'Batch', 'value': '{{B}}'}, {'label': '宽度', 'value': '{{D}}'}]
+        profile['mechanism'] = {
+            'title': '残差投影', 'equations': [r'\(Y = X W^{\mathsf{T}}\)'],
+            'description': r'当前批量大小 \(B={{B}}\)。', 'module': 'projection',
+        }
+        profile['notes'] = [{'title': '保留原始输入', 'text': r'skip 直接读取 \(X\)。', 'module': 'linear'}]
+        profile['trace'] = ['projection', 'linear']
+        profile['modules']['projection']['input'] = r'\(X \in \mathbb{R}^{ {{B}} \times {{N}} \times 768}\)'
+        profile['views'][0]['flow'] = [{'label': '投影模块', 'modules': ['projection']}]
+        profile['views'][1]['flow'] = [{'label': '线性 skip', 'modules': ['linear']}]
         profile['assumptions'] = r'行内 $d_k = 64$，独立公式 $$B = 2$$；费用 \(\$5\)。'
         module = profile['modules']['linear']
         module['description'] = r'缩放注意力 \(QK^{\mathsf{T}} / \sqrt{d_k}\)；<img src=x onerror=alert(1)>'
@@ -130,6 +142,59 @@ class MathRenderingTests(unittest.TestCase):
         self.assertIn(r'\notARealCommand', self.page.locator('#operator-content .math-error').inner_text())
         with self.assertRaisesRegex(AssertionError, 'invalid LaTeX'):
             checker.check_math(self.page, '#operator-content')
+
+    def test_reading_sections_controls_trace_and_flow(self):
+        self.assertEqual(self.page.locator('#summary-stats .stat').count(), 2)
+        self.assertTrue(self.page.locator('#mechanism').is_visible())
+        self.assertEqual(self.page.locator('#core-idea .katex math').count(), 2)
+        self.assertEqual(self.page.locator('#tensor-body tr').count(), 2)
+        control = self.page.get_by_role('spinbutton', name='Batch')
+        control.fill('3')
+        control.press('Tab')
+        self.assertEqual(self.page.locator('#summary-stats strong').first.inner_text(), '3')
+        self.assertIn('3 \\times 16', self.page.locator('#inspector-content .shape .math-text').first.get_attribute('data-math-source'))
+        self.assertIn('3 \\times 16', self.page.locator('#tensor-body tr').first.locator('td').nth(1).locator('.math-text').get_attribute('data-math-source'))
+        control.fill('99')
+        control.press('Tab')
+        self.assertEqual(control.input_value(), '3')
+        self.page.locator('#play').click()
+        self.assertEqual(self.page.locator('#graph .node.running').count(), 1)
+        self.page.locator('#reset').click()
+        self.assertEqual(self.page.locator('#graph .node.running').count(), 0)
+        self.page.locator('#tensor-body button').first.click()
+        self.assertTrue(self.page.locator('#source-modal').is_visible())
+        self.page.keyboard.press('Escape')
+        self.page.locator('#mechanism-open').click()
+        self.assertEqual(self.page.locator('#tabs button[aria-selected="true"]').inner_text(), '投影内部')
+        self.page.locator('#profile-picker').select_option('plain')
+        self.assertEqual(control.input_value(), '1')
+
+    def test_svg_formula_rendering_and_standalone_export(self):
+        self.page.evaluate(r'''() => {
+          view.nodes[0].lines = ['\\(QK^{\\mathsf{T}}\\)'];
+          draw();
+        }''')
+        self.assertEqual(self.page.locator('#graph foreignObject .katex math').count(), 1)
+        with self.page.expect_download() as pending:
+            self.page.locator('#export').click()
+        svg_path = self.repo / 'formula.svg'
+        pending.value.save_as(svg_path)
+        svg = svg_path.read_text()
+        self.assertIn('data:font/woff2;base64,', svg)
+        self.assertIn('foreignObject', svg)
+        self.page.goto(svg_path.as_uri())
+        self.assertEqual(self.page.locator('foreignObject math').count(), 1)
+        self.assertEqual(self.page.locator('parsererror').count(), 0)
+
+    def test_invalid_presentation_references_are_rejected(self):
+        invalid = json.loads(json.dumps(self.spec))
+        invalid['profiles'][0]['notes'][0]['module'] = 'missing'
+        with self.assertRaisesRegex(ValueError, 'links must reference'):
+            builder.validate_spec(invalid)
+        invalid = json.loads(json.dumps(self.spec))
+        invalid['profiles'][0]['views'][0]['flow'][0]['modules'] = ['linear']
+        with self.assertRaisesRegex(ValueError, 'visible module ids'):
+            builder.validate_spec(invalid)
 
     def test_bundled_checker_click_source_export_and_keyboard_paths(self):
         result = json.loads(subprocess.check_output([

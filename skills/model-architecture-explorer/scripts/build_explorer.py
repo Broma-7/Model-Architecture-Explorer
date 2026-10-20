@@ -27,6 +27,62 @@ def positive_number(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 < value < float('inf')
 
 
+def finite_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and -float('inf') < value < float('inf')
+
+
+def validate_presentation(profile: dict, context: str) -> None:
+    """Validate optional reading aids against this profile's actual modules."""
+    modules = profile['modules']
+    dimensions = profile.get('dimensions', {})
+    require(isinstance(dimensions, dict) and all(
+        re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', key) and finite_number(value)
+        for key, value in dimensions.items()), f'{context}: dimensions need numeric named values')
+    controls = profile.get('controls', [])
+    require(isinstance(controls, list), f'{context}: controls must be an array')
+    control_ids = set()
+    for control in controls:
+        require(isinstance(control, dict), f'{context}: each control must be an object')
+        cid = control.get('id')
+        require(isinstance(cid, str) and re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', cid)
+                and cid not in control_ids, f'{context}: invalid/duplicate control id')
+        control_ids.add(cid)
+        value, low, high, step = [control.get(k, default) for k, default in
+                                  [('value', None), ('min', 1), ('max', 4096), ('step', 1)]]
+        require(all(finite_number(v) for v in (value, low, high, step)) and low <= value <= high
+                and step > 0, f'{context}.{cid}: control needs value within min/max and positive step')
+        require(isinstance(control.get('label', cid), str), f'{context}.{cid}: label must be text')
+    stats = profile.get('stats', [])
+    require(isinstance(stats, list) and all(isinstance(stat, dict)
+            and isinstance(stat.get('label'), str)
+            and (isinstance(stat.get('value'), str) or finite_number(stat.get('value')))
+            and isinstance(stat.get('detail', ''), str) for stat in stats), f'{context}: invalid stats')
+    if 'stats' in profile:
+        require(bool(stats), f'{context}: stats must not be empty when provided')
+    trace = profile.get('trace', [])
+    require(isinstance(trace, list) and all(isinstance(mid, str) and mid in modules for mid in trace),
+            f'{context}: trace must reference existing module ids')
+    notes = profile.get('notes', [])
+    require(isinstance(notes, list), f'{context}: notes must be an array')
+    mechanism = profile.get('mechanism')
+    if mechanism is not None:
+        require(isinstance(mechanism, dict) and isinstance(mechanism.get('title'), str)
+                and isinstance(mechanism.get('description', ''), str), f'{context}: invalid mechanism')
+        equations = mechanism.get('equations', [])
+        require(isinstance(equations, list) and all(isinstance(e, str) for e in equations),
+                f'{context}: mechanism.equations must be strings')
+    for note in notes:
+        require(isinstance(note, dict) and all(isinstance(note.get(k), str) for k in ('title', 'text')),
+                f'{context}: each note needs title/text')
+    for item in notes + ([mechanism] if mechanism is not None else []):
+        require('module' not in item or (isinstance(item['module'], str) and item['module'] in modules),
+                f'{context}: mechanism/note links must reference existing modules')
+    legend = profile.get('legend', [])
+    require(isinstance(legend, list) and all(isinstance(item, dict)
+            and all(isinstance(item.get(k), str) for k in ('kind', 'label')) for item in legend),
+            f'{context}: legend needs kind/label entries')
+
+
 def symbol_ranges(tree: ast.AST, prefix: str = '') -> dict[str, list[int]]:
     result = {}
     for node in getattr(tree, 'body', []):
@@ -41,6 +97,9 @@ def symbol_ranges(tree: ast.AST, prefix: str = '') -> dict[str, list[int]]:
 def validate_spec(spec: dict) -> list[dict]:
     require(isinstance(spec, dict), 'Spec root must be an object')
     require(isinstance(spec.get('title'), str) and bool(spec['title'].strip()), 'A nonempty title is required')
+    presentation = spec.get('presentation', {})
+    require(isinstance(presentation, dict) and all(isinstance(presentation.get(k, ''), str)
+            for k in ('brand', 'headline', 'eyebrow', 'signature', 'repository')), 'Invalid presentation text')
     profiles = spec.get('profiles')
     require(isinstance(profiles, list) and bool(profiles), 'At least one profile is required')
     profile_ids = set()
@@ -79,6 +138,7 @@ def validate_spec(spec: dict) -> list[dict]:
             if 'symbol' in source:
                 require(isinstance(source['symbol'], str), f'{pid}.{mid}: source.symbol must be a string')
             source_refs.append(source)
+        validate_presentation(profile, pid)
         for view in views:
             context = f'{pid}.{view["id"]}'
             w, h = view.get('width'), view.get('height')
@@ -97,6 +157,27 @@ def validate_spec(spec: dict) -> list[dict]:
                 require(positive_number(nw) and positive_number(nh), f'{context}.{nid}: positive node size required')
                 require(0 <= x and 0 <= y and x + nw <= w and y + nh <= h, f'{context}.{nid}: node outside viewBox')
                 require(isinstance(node.get('lines', []), list) and all(isinstance(v, str) for v in node.get('lines', [])), f'{context}.{nid}: lines must be strings')
+                require(all(isinstance(node.get(k, ''), str) for k in ('title', 'foot', 'badge')),
+                        f'{context}.{nid}: title/foot/badge must be strings')
+                require(positive_number(node.get('titleSize', 13)), f'{context}.{nid}: invalid titleSize')
+                require(positive_number(node.get('lineHeight', 20)), f'{context}.{nid}: invalid lineHeight')
+                blocks = node.get('blocks', [])
+                require(isinstance(blocks, list) and all(isinstance(block, dict)
+                        and isinstance(block.get('title'), str) and isinstance(block.get('text', ''), str)
+                        and isinstance(block.get('kind', ''), str) for block in blocks), f'{context}.{nid}: invalid blocks')
+                if blocks:
+                    require(nw > 56 and nh >= 44 + (len(blocks)-1)*53 + 44 + (28 if node.get('foot') else 10),
+                            f'{context}.{nid}: blocks need more node width/height')
+            visible_modules = {node['module'] for node in nodes}
+            require(view.get('defaultModule', nodes[0]['module']) in visible_modules,
+                    f'{context}: defaultModule must appear in this view')
+            flow = view.get('flow', [])
+            require(isinstance(flow, list), f'{context}: flow must be an array')
+            for step in flow:
+                require(isinstance(step, dict) and isinstance(step.get('label'), str)
+                        and isinstance(step.get('modules'), list) and bool(step['modules'])
+                        and all(isinstance(mid, str) and mid in visible_modules for mid in step['modules']),
+                        f'{context}: each flow step needs label and visible module ids')
             for group in view.get('groups', []):
                 gx, gy, gw, gh = [group.get(k) for k in ('x', 'y', 'width', 'height')]
                 require(all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (gx, gy)), f'{context}: group needs numeric x/y')

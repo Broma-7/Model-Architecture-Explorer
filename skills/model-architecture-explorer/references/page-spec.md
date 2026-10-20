@@ -83,6 +83,88 @@
 - 节点 `title` 可覆盖模块标题；`lines` 是直接画到框中的摘要，每行约 20 px。为正文预留足够高度（大致 `60 + 22 × 行数`），长标题应加宽或简化。
 - `kind` 支持 `input`、`encoder`、`fusion`、`decoder`、`output`、`neutral`，也提供 `vision`、`language`、`state`、`action` 的配色。它只是视觉语义，不规定模型结构。
 
+## 完整页面的阅读区与联动
+
+上面的最小 spec 仅说明协议。新建完整模型页面时，根据实际源码补充下面这些字段；布局与验收原则见 [design-guide.md](design-guide.md)。所有字段均可省略以兼容旧 spec，但只有最小节点列表的页面不能代表复杂模型的完整交付质量。
+
+顶层 `presentation` 提供页面身份与概览文案：
+
+```json
+{
+  "presentation": {
+    "brand": "ModelName",
+    "headline": "一句话说明模型核心思路",
+    "eyebrow": "ENCODE · INTERACT · DECODE",
+    "signature": "X → Z → Y",
+    "repository": "model-repo / source snapshot"
+  }
+}
+```
+
+每个 profile 可以声明模型参数、解释区、形状控制项和张量表：
+
+```json
+{
+  "dimensions": {"N": 32, "D": 256},
+  "controls": [
+    {"id": "B", "label": "Batch", "value": 1, "min": 1, "max": 128}
+  ],
+  "stats": [
+    {"label": "输入宽度 / INPUT", "value": 768},
+    {"label": "输出宽度 / OUTPUT", "value": "{{D}}", "detail": "projection"}
+  ],
+  "mechanism": {
+    "title": "残差投影",
+    "equations": ["\\[Y = W_s X + \\operatorname{MLP}(\\operatorname{LN}(X))\\]"],
+    "description": "主分支先归一化；skip 读取原始输入，两路在相同形状下逐元素相加。",
+    "module": "projection"
+  },
+  "notes": [
+    {"title": "skip 保留原始输入", "text": "不要将主分支的 LayerNorm 误画到 skip 上。", "module": "linear"}
+  ],
+  "trace": ["projection", "linear"],
+  "tensorCaption": "关键前向阶段 · 形状由源码和配置推导"
+}
+```
+
+- `stats` 显示实际模型参数；未声明时隐藏该区域，不用文档规模统计冒充模型信息。新页面应填写有解释价值的模型信息。
+- `mechanism` 的 `equations` 和说明支持 LaTeX；`notes` 是实现要点。可选的 `module` 链接指向当前 profile 的模块，跳转到对应计算图或详情。
+- `trace` 是按阅读路径排列的模块 id 列表，每行关联该模块的输入、输出和真实源码。不声明时按默认整体视图的模块顺序生成；它不推断真实执行时序。
+- `dimensions` 提供数值常量；`controls` 提供可调数值，每项有 `id`、`value`，可选 `label`、`min`、`max`、`step`。未给出的边界为 1 至 4096，步长为 1；初值必须有效。切换 profile 会重置其控制项。
+- 文本内的 `{{B}}`、`{{B * N}}`、`{{N + 2}}` 会由当前数值替换，支持括号、加减乘除与一元正负号，使用受限算术解析器而非 JavaScript eval。不要把任意代码放进表达式，也不要对无法从源码推导的关系提供可调控件。未知变量会保持原样，交付时应修正所有未替换的形状表达式。
+- 参数卡、说明、节点文字、检查器、公式和张量表使用同一组数值。源文件与原始源码行号不做字符串替换。
+
+复杂模块的节点可以在保留一次点击下钻的同时展示内部摘要：
+
+```json
+{
+  "id": "interaction", "module": "fusion",
+  "x": 480, "y": 150, "width": 250, "height": 220,
+  "title": "跨模态交互", "badge": "×6",
+  "blocks": [
+    {"title": "V ⇄ L", "text": "双向 Cross-Attention", "kind": "vision"},
+    {"title": "文本 Self-Attention", "text": "+ FFN", "kind": "language"}
+  ],
+  "foot": "输出 token 数不变"
+}
+```
+
+`blocks` 替代该节点的 `lines`，`foot` 放在底部，`badge` 放在标题右侧；为标题与 badge 留出空间。可选 `titleSize` 默认 13；`lineHeight` 默认 20。图内公式用显式 LaTeX 分隔符，通过 SVG `foreignObject` 排版；有分式或多行公式时增大行距和框高，检查真实边界。SVG 导出会内嵌公式样式和字体。普通 SVG 的纯文本标签仍可使用。
+
+视图可声明 `defaultModule` 指定初始检查器，并用 `flow` 明确前向演示步骤，例如：
+
+```json
+{
+  "defaultModule": "fusion",
+  "flow": [
+    {"label": "编码两路输入", "modules": ["vision", "language"]},
+    {"label": "跨模态交互", "modules": ["fusion"]}
+  ]
+}
+```
+
+这些模块必须出现在该视图。每步允许同时高亮多个模块；播放与单步更新检查器，不触发下钻或弹窗。没有 `flow` 时不展示播放控件，也不会擅自将节点排列当成执行顺序。`legend` 可在 profile 中用 `[{"kind":"vision","label":"视觉流"}]` 覆盖默认图例。
+
 图可以另外声明：
 
 ```json
@@ -121,7 +203,7 @@ JSON 必须转义反斜杠，例如下面的内容会显示带有转置、分式
 }
 ```
 
-Python 构建 spec 时可用原始字符串，例如 `r"\(X \in \mathbb{R}^{B \times N \times D}\)"`，再由 `json.dumps` 转义。金额中的字面美元符号可写成 `\(\$5\)`（JSON 中为 `\\(\\$5\\)`）。字段不解析 Markdown / HTML，不要用反引号或代码围栏包住公式；代码标识、文件路径和源码快照按普通文本保留。SVG 中的标题、节点摘要、连线标签和图注也保留普通文本，以保证 SVG 导出独立可读；完整数学关系放进模块说明或计算步骤。
+Python 构建 spec 时可用原始字符串，例如 `r"\(X \in \mathbb{R}^{B \times N \times D}\)"`，再由 `json.dumps` 转义。金额中的字面美元符号可写成 `\(\$5\)`（JSON 中为 `\\(\\$5\\)`）。字段不解析 Markdown / HTML，不要用反引号或代码围栏包住公式；代码标识、文件路径和源码快照按普通文本保留。节点摘要和图注也支持 LaTeX；为图内公式预留足够空间，避免长推导遮挡相邻节点。
 
 KaTeX 0.16.22 的脚本、CSS 和 WOFF2 字体随 skill 分发，构建时内嵌到 HTML，不依赖 CDN 或模型运行环境的额外 Python 包。长的独立公式在其容器中横向滚动。解析失败会保留可见的错误表达式，交付前应通过浏览器检查并修正。
 

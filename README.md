@@ -14,6 +14,7 @@ Model Architecture Explorer 是一个 Codex skill，适合希望理解模型实�
 - 说明、张量形状和计算步骤支持 LaTeX 数学排版，内嵌 KaTeX 与字体，离线打开也可显示分式、上下标和矩阵。
 - 将源码快照嵌入 HTML，离线查看并定位类 / 方法的原始行号。
 - 导出 SVG，支持缩放、键盘操作、移动端内部滚动与打印。
+- 完整页面可配置模型参数卡、核心机制、实现要点、张量追踪和前向演示；形状控制项联动图、检查器和表格。
 - 提供可选 Playwright 工具，实际验证下钻、弹窗、源码范围与导出。
 
 **模型分析由代理读源码完成。构建脚本不会自动推断任意模型架构，也不会自动确认数学关系正确。**
@@ -78,6 +79,7 @@ skills/model-architecture-explorer/
 ├── assets/explorer.html          离线 HTML / SVG 网页模板
 ├── assets/katex/                 KaTeX 0.16.22、字体与 MIT 许可证
 ├── references/page-spec.md       声明式架构 spec 的格式
+├── references/design-guide.md    阅读层次、参考页保真与视觉验收
 └── scripts/
     ├── build_explorer.py         校验 spec 并嵌入源码快照
     └── check_explorer.py         可选 Playwright 行为检查

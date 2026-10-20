@@ -44,22 +44,31 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
             for profile in spec['profiles']:
                 page.locator('#profile-picker').select_option(profile['id'])
                 checked_math += check_math(page, '#assumptions')
+                for region in ('#summary-stats', '#core-idea', '#implementation-notes', '#tensor-body'):
+                    if page.locator(region).count():
+                        checked_math += check_math(page, region)
                 for view in profile['views']:
                     # Select by the exact stored id, even when labels overlap.
                     tab = page.locator('#tabs button').all()[next(i for i, v in enumerate(profile['views']) if v['id'] == view['id'])]
                     tab.click()
+                    page.evaluate('document.fonts.ready')
                     checked_math += check_math(page, '#inspector-content')
+                    checked_math += check_math(page, '#graph')
                     assert tab.get_attribute('aria-selected') == 'true'
                     assert page.locator('#graph').get_attribute('viewBox') == f'0 0 {view["width"]} {view["height"]}'
                     overflow = page.evaluate('''() => {
                       const graph=document.querySelector('#graph'),v=graph.viewBox.baseVal;
-                      return [...graph.querySelectorAll('text')].filter(t=>{const b=t.getBBox();return b.x<0||b.y<0||b.x+b.width>v.width||b.y+b.height>v.height}).map(t=>t.textContent);
+                      return [...graph.querySelectorAll('text,foreignObject')].filter(t=>{const b=t.getBBox();return b.x<0||b.y<0||b.x+b.width>v.width||b.y+b.height>v.height}).map(t=>t.textContent);
                     }''')
                     assert not overflow, f'{profile["id"]}/{view["id"]}: labels outside viewBox: {overflow}'
                     node_overflow = page.evaluate('''() => [...document.querySelectorAll('#graph .node')].flatMap(n=>{
-                      const r=n.querySelector('.box').getBBox();return [...n.querySelectorAll('text')].filter(t=>{const b=t.getBBox();return b.x<r.x||b.y<r.y||b.x+b.width>r.x+r.width||b.y+b.height>r.y+r.height}).map(t=>({node:n.dataset.node,text:t.textContent}));
+                      const r=n.querySelector('.box').getBBox();return [...n.querySelectorAll('text,foreignObject')].filter(t=>{const b=t.getBBox();return b.x<r.x||b.y<r.y||b.x+b.width>r.x+r.width||b.y+b.height>r.y+r.height}).map(t=>({node:n.dataset.node,text:t.textContent}));
                     })''')
                     assert not node_overflow, f'{profile["id"]}/{view["id"]}: node label overflow: {node_overflow}'
+                    clipped_math = page.locator('#graph .svg-math > div').evaluate_all('''elements=>elements.filter(
+                        el=>el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1
+                    ).map(el=>el.textContent)''')
+                    assert not clipped_math, f'{profile["id"]}/{view["id"]}: clipped graph formulas: {clipped_math}'
                     with TemporaryDirectory(prefix='architecture-svg-') as folder:
                         with page.expect_download() as pending:
                             page.locator('#export').click()
@@ -87,7 +96,8 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                             assert page.locator('#operator-modal').is_visible(), f'{node["id"]}: details did not open'
                             assert page.locator('#operator-title').inner_text() == module['title'] + ' · 计算详情'
                             shapes = page.locator('#operator-content .shape')
-                            raw_shapes = [shape.locator('.math-text').get_attribute('data-math-source')
+                            raw_shapes = [(shape.locator('.math-text').get_attribute('data-math-template')
+                                           or shape.locator('.math-text').get_attribute('data-math-source'))
                                           if shape.locator('.math-text').count() else shape.text_content()
                                           for shape in shapes.all()]
                             assert raw_shapes == [module['input'], module['output']]
