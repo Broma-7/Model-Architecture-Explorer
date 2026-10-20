@@ -23,6 +23,37 @@ def check_math(page, root: str) -> int:
     return region.locator('.katex').count()
 
 
+def select_view(page, view_id: str) -> None:
+    picker = page.locator('#view-picker')
+    if picker.count() and picker.is_visible():
+        picker.select_option(view_id)
+    else:
+        next(button for button in page.locator('#tabs button').all()
+             if button.get_attribute('data-view') == view_id).click()
+
+
+def active_view_id(page) -> str | None:
+    return (page.locator('#current-view').get_attribute('data-view')
+            or page.locator('#tabs button[aria-selected="true"]').get_attribute('data-view'))
+
+
+def check_wires(page) -> list:
+    """Find connections that leave the canvas or pass through unrelated nodes."""
+    return page.evaluate('''() => {
+      const graph=document.querySelector('#graph'),v=graph.viewBox.baseVal;
+      const boxes=[...graph.querySelectorAll('.node')].map(n=>({id:n.dataset.node,b:n.querySelector('.box').getBBox()}));
+      const inside=(p,b,m=0)=>p.x>b.x+m&&p.x<b.x+b.width-m&&p.y>b.y+m&&p.y<b.y+b.height-m;
+      return [...graph.querySelectorAll('path.wire')].flatMap(path=>{
+        const length=path.getTotalLength(),start=path.getPointAtLength(0),end=path.getPointAtLength(length);
+        const unrelated=boxes.filter(({b})=>!inside(start,b,-2)&&!inside(end,b,-2));
+        for(let d=0;d<=length;d+=3){const p=path.getPointAtLength(d);
+          if(p.x<0||p.y<0||p.x>v.width||p.y>v.height)return [{path:path.getAttribute('d'),issue:'outside viewBox'}];
+          const hit=unrelated.find(({b})=>inside(p,b,3));if(hit)return [{path:path.getAttribute('d'),issue:'crosses '+hit.id}];
+        }return [];
+      });
+    }''')
+
+
 def check(url: str, screenshot: Path | None = None, browser_path: str | None = None) -> dict:
     from playwright.sync_api import sync_playwright
 
@@ -49,18 +80,19 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                         checked_math += check_math(page, region)
                 for view in profile['views']:
                     # Select by the exact stored id, even when labels overlap.
-                    tab = page.locator('#tabs button').all()[next(i for i, v in enumerate(profile['views']) if v['id'] == view['id'])]
-                    tab.click()
+                    select_view(page, view['id'])
                     page.evaluate('document.fonts.ready')
                     checked_math += check_math(page, '#inspector-content')
                     checked_math += check_math(page, '#graph')
-                    assert tab.get_attribute('aria-selected') == 'true'
+                    assert active_view_id(page) == view['id']
                     assert page.locator('#graph').get_attribute('viewBox') == f'0 0 {view["width"]} {view["height"]}'
                     overflow = page.evaluate('''() => {
                       const graph=document.querySelector('#graph'),v=graph.viewBox.baseVal;
                       return [...graph.querySelectorAll('text,foreignObject')].filter(t=>{const b=t.getBBox();return b.x<0||b.y<0||b.x+b.width>v.width||b.y+b.height>v.height}).map(t=>t.textContent);
                     }''')
                     assert not overflow, f'{profile["id"]}/{view["id"]}: labels outside viewBox: {overflow}'
+                    wires = check_wires(page)
+                    assert not wires, f'{profile["id"]}/{view["id"]}: misleading connections: {wires}'
                     node_overflow = page.evaluate('''() => [...document.querySelectorAll('#graph .node')].flatMap(n=>{
                       const r=n.querySelector('.box').getBBox();return [...n.querySelectorAll('text,foreignObject')].filter(t=>{const b=t.getBBox();return b.x<r.x||b.y<r.y||b.x+b.width>r.x+r.width||b.y+b.height>r.y+r.height}).map(t=>({node:n.dataset.node,text:t.textContent}));
                     })''')
@@ -79,7 +111,7 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                         assert svg.attrib['height'] == str(view['height'])
                     checked_views += 1
                     for index, node in enumerate(view['nodes']):
-                        tab.click()
+                        select_view(page, view['id'])
                         module = profile['modules'][node['module']]
                         element = page.locator('#graph .node').nth(index)
                         element.click()
@@ -87,11 +119,10 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                         checked_nodes += 1
                         target = module.get('expandTo')
                         if target and target != view['id']:
-                            target_tab = page.locator('#tabs button').all()[next(i for i, v in enumerate(profile['views']) if v['id'] == target)]
-                            assert target_tab.get_attribute('aria-selected') == 'true', f'{node["id"]}: did not expand'
+                            assert active_view_id(page) == target, f'{node["id"]}: did not expand'
                             assert not page.locator('#back').is_disabled()
                             page.locator('#back').click()
-                            assert tab.get_attribute('aria-selected') == 'true', f'{node["id"]}: back failed'
+                            assert active_view_id(page) == view['id'], f'{node["id"]}: back failed'
                         else:
                             assert page.locator('#operator-modal').is_visible(), f'{node["id"]}: details did not open'
                             assert page.locator('#operator-title').inner_text() == module['title'] + ' · 计算详情'

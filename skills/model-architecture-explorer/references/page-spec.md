@@ -186,11 +186,44 @@
 
 `width/height` 是当前图的 viewBox 尺寸，同时决定 SVG 导出尺寸。不同视图可有不同长宽比。构建器检查节点 / group / note 的基本边界，实际文字和 edge 路径仍需浏览器检查。
 
+## 算子排版、导航层级与层实例
+
+为细图声明 `variant: "operator"`，默认使用更大的标题与正文；节点可用 `fontSize`、`titleSize`、`lineHeight` 单独覆盖，`kind` 可覆盖该实例的颜色。默认正文起点在节点顶部下方 59 个单位，行距 26；为公式实际高度预留空间。总览继续使用原有的紧凑卡片样式。
+
+```json
+{
+  "id": "attention-detail",
+  "label": "注意力算子",
+  "parent": "interaction",
+  "variant": "operator",
+  "heading": "一层内部：两路投影与跨路读取",
+  "description": "沿线查看评分、归一化和 Value 的流向；点击算子查看源码。",
+  "width": 1200,
+  "height": 1600,
+  "minWidth": 1020
+}
+```
+
+此片段只说明视图元数据；仍需填写完整 `nodes` / `edges`。`parent` 指向当前 profile 中的另一视图，不允许循环。不填 parent 的视图显示在主标签栏；子图通过模块下钻、面包屑和“全部计算图”选择器访问。`parent` 表示阅读层级，不是数据依赖。`heading` / `description` 支持形状替换和公式。`minWidth` 控制内部滚动画布的最小 CSS 宽度；未声明时算子图为 viewBox 宽度的 85%，其他视图为 650。
+
+在 profile 中声明独立于形状输入框的层号选择器：
+
+```json
+{
+  "layerControls": [
+    {"id": "I", "label": "交互层", "value": 1, "max": 6,
+     "views": ["interaction", "attention-detail"]}
+  ]
+}
+```
+
+`views` 可省略，省略时在全部视图显示；通常应限制到相关细图。层号为 1..max 的整数，通过 `{{I}}`、`{{I-1}}` 更新标题、参数和实例路径说明，不能与 `controls` 重名。源码 `source.symbol` 仍定位实际类 / 方法定义；独立层的运行时实例路径写在 `params`，不要伪造 Python 定义。首层与后续层输入关系若不同，图和说明必须表达该区别。更复杂的条件文案可用项目定制模板实现。
+
 ## 构建与更新
 
 ### LaTeX 公式
 
-`description`、`input`、`output`、`params` 的标签和值、`operations`、顶层 `subtitle` 及 profile 的 `assumptions` 支持混排文字与 LaTeX。行内用 `\(...\)` 或 `$...$`，独立公式用 `\[...\]` 或 `$$...$$`。只渲染显式分隔符中的公式，不会把旧 spec 中的普通字符串自动转换成数学表达式。
+`description`、`input`、`output`、`params` 的标签和值、`operations`、顶层 `subtitle` 及 profile 的 `assumptions` 支持混排文字与 LaTeX。普通形状优先保留 `[B,N,256]` 等等宽标签，只有数学关系需要公式排版。行内用 `\(...\)` 或 `$...$`，独立公式用 `\[...\]` 或 `$$...$$`。只渲染显式分隔符中的公式，不会把普通字符串自动转换成数学表达式。
 
 JSON 必须转义反斜杠，例如下面的内容会显示带有转置、分式和根号的注意力公式：
 

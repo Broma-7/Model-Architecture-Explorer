@@ -204,6 +204,64 @@ class MathRenderingTests(unittest.TestCase):
         self.assertEqual(result['profiles'], 2)
         self.assertGreater(result['math_renders'], 0)
 
+    def test_nested_operator_view_layer_instance_and_return(self):
+        spec = json.loads(json.dumps(self.spec))
+        profile = spec['profiles'][0]
+        detail = profile['views'][1]
+        detail.update(parent='overview', variant='operator', heading='第 {{I}} 层内部计算')
+        profile['layerControls'] = [{'id': 'I', 'label': '层实例', 'value': 1,
+                                    'max': 3, 'views': [detail['id']]}]
+        profile['modules']['linear']['params'].append(['实例', 'layers.{{I-1}}'])
+        path = self.repo / 'nested-spec.json'
+        output = self.repo / 'nested.html'
+        path.write_text(json.dumps(spec))
+        builder.build(self.repo, path, output, builder.DEFAULT_TEMPLATE)
+        self.page.goto(output.as_uri())
+        self.assertEqual(self.page.locator('#tabs button').count(), 1)
+        self.assertEqual(self.page.locator('#layer-controls select').count(), 0)
+        self.page.locator('#graph .node').click()
+        self.assertEqual(self.page.locator('#current-view').get_attribute('data-view'), detail['id'])
+        self.page.get_by_role('combobox', name='层实例').select_option('3')
+        self.assertIn('第 3 层', self.page.locator('#view-intro').inner_text())
+        self.assertIn('layers.2', self.page.locator('#inspector-content').inner_text())
+        self.page.locator('#graph .node').click()
+        self.assertIn('layers.2', self.page.locator('#operator-content').inner_text())
+        self.page.keyboard.press('Escape')
+        self.page.locator('#back').click()
+        self.assertEqual(self.page.locator('#current-view').get_attribute('data-view'), 'overview')
+        self.assertEqual(self.page.locator('#layer-controls select').count(), 0)
+        self.page.get_by_role('combobox', name='全部计算图').select_option(detail['id'])
+        self.assertEqual(self.page.get_by_role('combobox', name='层实例').input_value(), '3')
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        self.page.locator('#current-view a').click()
+        self.assertEqual(self.page.locator('#current-view').get_attribute('data-view'), 'overview')
+        result = json.loads(subprocess.check_output([
+            sys.executable, str(SKILL / 'scripts' / 'check_explorer.py'), '--page', str(output)
+        ], text=True))
+        self.assertEqual(result['status'], 'PASS')
+
+    def test_invalid_hierarchy_and_misleading_wire(self):
+        invalid = json.loads(json.dumps(self.spec))
+        views = invalid['profiles'][0]['views']
+        views[0]['parent'], views[1]['parent'] = views[1]['id'], views[0]['id']
+        with self.assertRaisesRegex(ValueError, 'cyclic view hierarchy'):
+            builder.validate_spec(invalid)
+        self.page.evaluate('''() => {
+          document.querySelector('#graph').innerHTML =
+            '<path class="wire" d="M 30 150 H 470"/>' +
+            [0,200,400].map((x,i)=>`<g class="node" data-node="${i}"><rect class="box" x="${x}" y="100" width="100" height="100"/></g>`).join('');
+        }''')
+        self.assertEqual(checker.check_wires(self.page)[0]['issue'], 'crosses 1')
+
+    def test_mobile_tensor_table_math_stays_in_scroll_container(self):
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.page.evaluate(r'''() => {
+          profile.modules.projection.input = '\\(V\\in\\mathbb{R}^{1\\times512\\times256}\\)；\\(L\\in\\mathbb{R}^{1\\times21\\times256}\\)';
+          renderContext();
+        }''')
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+
 
 if __name__ == '__main__':
     unittest.main()

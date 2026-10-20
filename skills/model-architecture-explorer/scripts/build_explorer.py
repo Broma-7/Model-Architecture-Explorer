@@ -52,6 +52,22 @@ def validate_presentation(profile: dict, context: str) -> None:
         require(all(finite_number(v) for v in (value, low, high, step)) and low <= value <= high
                 and step > 0, f'{context}.{cid}: control needs value within min/max and positive step')
         require(isinstance(control.get('label', cid), str), f'{context}.{cid}: label must be text')
+    layer_controls = profile.get('layerControls', [])
+    require(isinstance(layer_controls, list), f'{context}: layerControls must be an array')
+    view_ids = {view['id'] for view in profile['views']}
+    for control in layer_controls:
+        require(isinstance(control, dict), f'{context}: layer control must be an object')
+        cid = control.get('id')
+        require(isinstance(cid, str) and re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', cid)
+                and cid not in control_ids, f'{context}: invalid/duplicate layer control id')
+        control_ids.add(cid)
+        value, high = control.get('value'), control.get('max')
+        require(all(isinstance(v, int) and not isinstance(v, bool) for v in (value, high))
+                and 1 <= value <= high, f'{context}.{cid}: layer value must be within 1..max')
+        require(isinstance(control.get('label', cid), str), f'{context}.{cid}: label must be text')
+        require('views' not in control or (isinstance(control['views'], list)
+                and all(isinstance(v, str) and v in view_ids for v in control['views'])),
+                f'{context}.{cid}: layer views must exist')
     stats = profile.get('stats', [])
     require(isinstance(stats, list) and all(isinstance(stat, dict)
             and isinstance(stat.get('label'), str)
@@ -120,6 +136,18 @@ def validate_spec(spec: dict) -> list[dict]:
             require(isinstance(vid, str) and bool(vid) and vid not in view_ids, f'{pid}: invalid/duplicate view id: {vid}')
             view_ids.add(vid)
         require(profile.get('defaultView', views[0]['id']) in view_ids, f'{pid}: defaultView does not exist')
+        view_lookup = {view['id']: view for view in views}
+        for view in views:
+            parent = view.get('parent')
+            require(parent is None or (isinstance(parent, str) and parent in view_ids),
+                    f'{pid}.{view["id"]}: parent view must exist')
+        for view in views:
+            parent = view.get('parent')
+            visited = {view['id']}
+            while parent is not None:
+                require(parent not in visited, f'{pid}.{view["id"]}: cyclic view hierarchy')
+                visited.add(parent)
+                parent = view_lookup[parent].get('parent')
         for mid, module in modules.items():
             require(isinstance(module, dict), f'{pid}.{mid}: module must be an object')
             require(isinstance(module.get('title'), str) and bool(module['title']), f'{pid}.{mid}: title is required')
@@ -143,6 +171,10 @@ def validate_spec(spec: dict) -> list[dict]:
             context = f'{pid}.{view["id"]}'
             w, h = view.get('width'), view.get('height')
             require(positive_number(w) and positive_number(h), f'{context}: positive width and height required')
+            require(view.get('variant', 'overview') in ('overview', 'operator'), f'{context}: unknown diagram variant')
+            require(positive_number(view.get('minWidth', 650)), f'{context}: invalid minWidth')
+            require(all(isinstance(view.get(k, ''), str) for k in ('heading', 'description')),
+                    f'{context}: heading/description must be text')
             nodes = view.get('nodes')
             require(isinstance(nodes, list) and bool(nodes), f'{context}: at least one node is required')
             node_ids = set()
@@ -161,6 +193,8 @@ def validate_spec(spec: dict) -> list[dict]:
                         f'{context}.{nid}: title/foot/badge must be strings')
                 require(positive_number(node.get('titleSize', 13)), f'{context}.{nid}: invalid titleSize')
                 require(positive_number(node.get('lineHeight', 20)), f'{context}.{nid}: invalid lineHeight')
+                require(positive_number(node.get('fontSize', 11)), f'{context}.{nid}: invalid fontSize')
+                require(isinstance(node.get('kind', ''), str), f'{context}.{nid}: invalid visual kind')
                 blocks = node.get('blocks', [])
                 require(isinstance(blocks, list) and all(isinstance(block, dict)
                         and isinstance(block.get('title'), str) and isinstance(block.get('text', ''), str)
