@@ -6,9 +6,15 @@ import {resolve} from 'node:path';
 
 const args = process.argv.slice(2);
 const option = name => args[args.indexOf(name) + 1];
-if (!args.includes('--input') || !args.includes('--output')) {
-  console.error('Usage: node render_math.mjs --input formulas.json --output math-svg.json [--module-dir /path/node_modules]');
+if (args.includes('--input') === args.includes('--spec') || !args.includes('--output')) {
+  console.error('Usage: node render_math.mjs (--input formulas.json | --spec spec.json) --output math-svg.json [--module-dir /path/node_modules]');
   process.exit(1);
+}
+const pattern = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$([^$\n]+?)\$/g;
+function collect(value) {
+  if (typeof value === 'string') return [...value.matchAll(pattern)].map(m => m.slice(1).find(v => v !== undefined).trim());
+  if (value && typeof value === 'object') return Object.values(value).flatMap(collect);
+  return [];
 }
 const require = args.includes('--module-dir')
   ? createRequire(resolve(option('--module-dir'), '../package.json'))
@@ -28,12 +34,15 @@ const document = mathjax.document('', {
   }),
   OutputJax: new SVG({fontCache: 'none'}),
 });
-const formulas = JSON.parse(readFileSync(option('--input'), 'utf8'));
+const formulas = args.includes('--spec')
+  ? collect(JSON.parse(readFileSync(option('--spec'), 'utf8')))
+  : JSON.parse(readFileSync(option('--input'), 'utf8'));
 if (!Array.isArray(formulas) || formulas.some(tex => typeof tex !== 'string')) {
   throw new Error('Input must be an array of TeX strings without delimiters');
 }
 const output = {};
 for (const tex of new Set(formulas)) {
+  if (tex.includes('{{')) throw new Error('Precompiled formulas must use symbolic values; keep dynamic dimensions in plain shape labels or use KaTeX: ' + tex);
   let node;
   try { node = document.convert(tex, {display: true}); }
   catch (error) { throw new Error(`Invalid TeX: ${tex}: ${error.message}`); }

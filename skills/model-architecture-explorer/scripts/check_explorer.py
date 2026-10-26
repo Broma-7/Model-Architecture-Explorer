@@ -14,13 +14,30 @@ import xml.etree.ElementTree as ET
 def check_math(page, root: str) -> int:
     """Check rendered math in the current dynamic region, including parse failures."""
     region = page.locator(root)
-    assert region.locator('.math-error, .katex-error').count() == 0, f'{root}: invalid LaTeX formula'
+    assert region.locator('.math-error, .katex-error, [data-mml-node="merror"]').count() == 0, f'{root}: invalid LaTeX formula'
     formula = re.compile(r'\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|(?<!\\)\$[^$\n]+?\$')
     for element in region.locator('.math-text').all():
         source = element.get_attribute('data-math-source') or ''
         if formula.search(source):
-            assert element.locator('.katex math').count() > 0, f'{root}: LaTeX was not typeset: {source}'
-    return region.locator('.katex').count()
+            assert element.locator('.katex math, .math-expression svg path').count() > 0, f'{root}: LaTeX was not typeset: {source}'
+    for element in region.locator('.math-expression, .math-label').all():
+        assert element.get_attribute('data-latex'), f'{root}: vector formula lacks a TeX label'
+        assert element.locator('path').count() > 0, f'{root}: vector formula has no glyph paths'
+    return region.locator('.katex, .math-expression, .math-label').count()
+
+
+def check_formula_layout(page) -> list:
+    """Nested SVG getBBox uses local coordinates; compare rendered screen rectangles."""
+    return page.evaluate("""() => [...document.querySelectorAll('#graph .node')].flatMap(node=>{
+      const box=node.querySelector('.box').getBoundingClientRect();
+      return [...node.querySelectorAll('.math-label')].flatMap(el=>{
+        const r=el.getBoundingClientRect();
+        const overflow=r.left<box.left-1||r.top<box.top-1||r.right>box.right+1||r.bottom>box.bottom+1;
+        const peers=[...node.querySelectorAll('text,.math-label')].filter(t=>t!==el);
+        const overlap=peers.some(t=>{const q=t.getBoundingClientRect();return Math.min(q.right,r.right)-Math.max(q.left,r.left)>2&&Math.min(q.bottom,r.bottom)-Math.max(q.top,r.top)>2;});
+        return overflow||overlap?[{node:node.dataset.node,latex:el.dataset.latex,overflow,overlap}]:[];
+      });
+    })""")
 
 
 def select_view(page, view_id: str) -> None:
@@ -97,6 +114,8 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                       const r=n.querySelector('.box').getBBox();return [...n.querySelectorAll('text,foreignObject')].filter(t=>{const b=t.getBBox();return b.x<r.x||b.y<r.y||b.x+b.width>r.x+r.width||b.y+b.height>r.y+r.height}).map(t=>({node:n.dataset.node,text:t.textContent}));
                     })''')
                     assert not node_overflow, f'{profile["id"]}/{view["id"]}: node label overflow: {node_overflow}'
+                    collisions = check_formula_layout(page)
+                    assert not collisions, f'{profile["id"]}/{view["id"]}: formula collisions: {collisions}'
                     clipped_math = page.locator('#graph .svg-math > div').evaluate_all('''elements=>elements.filter(
                         el=>el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1
                     ).map(el=>el.textContent)''')
@@ -109,6 +128,19 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                         svg = ET.fromstring(svg_path.read_text())
                         assert svg.attrib['width'] == str(view['width'])
                         assert svg.attrib['height'] == str(view['height'])
+                        if page.locator('#math-svg-data').count():
+                            markup=svg_path.read_text()
+                            assert 'foreignObject' not in markup and '@font-face' not in markup, 'Vector export depends on HTML or math fonts'
+                            # Open the download independently; DOM existence alone is not visual rendering.
+                            exported=browser.new_page(viewport={'width':1440,'height':1000})
+                            try:
+                                exported.goto(svg_path.as_uri())
+                                assert exported.locator('parsererror').count()==0
+                                assert exported.locator('.math-label').count()==page.locator('#graph .math-label').count()
+                                for glyph in exported.locator('.math-label').all():
+                                    assert glyph.locator('path').count()>0
+                            finally:
+                                exported.close()
                     checked_views += 1
                     for index, node in enumerate(view['nodes']):
                         select_view(page, view['id'])

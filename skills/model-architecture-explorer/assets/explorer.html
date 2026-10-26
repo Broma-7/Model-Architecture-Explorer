@@ -20,7 +20,7 @@ main{max-width:1660px;margin:auto;padding:38px 3.8% 24px}.hero{display:flex;alig
 .tensor-section{margin-top:20px;scroll-margin-top:20px}.tensor-section .section-heading>div{min-width:0}.tensor-caption{font-size:10px;color:#92a0a5;margin-top:4px}.tensor-controls{display:flex;flex-wrap:wrap;align-items:center;gap:14px;font-size:10px;color:#7b888e}.tensor-controls label{display:flex;align-items:center;gap:6px}.tensor-controls input{width:65px;padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:white;color:#43545b}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;text-align:left;font-size:11px}th{font-size:10px;font-weight:500;color:#92a0a5;border-bottom:1px solid var(--line);padding:9px 12px;white-space:nowrap}td{padding:12px;border-bottom:1px solid #f0f3f4;color:#6c7d84;min-width:140px}td:first-child{color:#3b515a}td .math-text{display:block;white-space:pre-line;min-width:130px}td:last-child{min-width:100px}td button{border:0;background:none;font-size:10px;color:#819b64;padding:0;text-align:left}tr:last-child td{border:0}.assumptions{font-size:10px;line-height:1.9;color:#929da2;margin-top:14px}.assumptions.standalone{padding:16px 20px;background:white;border:1px solid var(--line);border-radius:10px;margin-top:20px}
 footer{max-width:1660px;margin:auto;padding:0 3.8% 25px;display:flex;justify-content:space-between;gap:20px;font-size:10px;color:#96a0a6}.status{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#254035;color:white;padding:10px 20px;border-radius:8px;font-size:12px;z-index:20}
 dialog{width:min(800px,94vw);max-height:86vh;padding:0;border:1px solid #dce4df;border-radius:16px;box-shadow:0 30px 120px #0003;color:var(--ink)}dialog::backdrop{background:#15232480;backdrop-filter:blur(4px)}.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:18px 23px;border-bottom:1px solid var(--line)}.dialog-head h2{font-size:14px;margin:0;overflow-wrap:anywhere}.dialog-head button{padding:3px 9px;background:#f0f3f2}.dialog-body{padding:24px}.operator-description{color:#64767b;line-height:1.95;font-size:14px;margin:12px 0 18px}.shapes{display:grid;grid-template-columns:1fr 1fr;gap:16px}.operations{padding-left:24px;color:#58756c;font-size:14px;line-height:1.9}.operations li{padding:4px 0}#source-modal{width:min(1000px,94vw)}#source-meta{font:11px ui-monospace,monospace;color:#899c92;padding:12px 22px}#source-code{padding:15px 0;margin:0;background:#f6f8f7;max-height:65vh;overflow:auto;font:11px/1.85 ui-monospace,monospace;tab-size:4}.code-line{display:flex;min-width:max-content;padding-right:24px}.code-line.focus{background:#e9f1d5}.line-number{display:inline-block;min-width:60px;text-align:right;padding-right:18px;color:#a1afa5;user-select:none}.code-text{white-space:pre}
-.math-text{overflow-wrap:anywhere}.math-text .katex{font-size:1.12em;line-height:1.4;white-space:normal}.math-text .katex-display{margin:.6em 0;padding:4px 2px;overflow-x:auto;overflow-y:hidden;text-align:left}.math-text .katex-display>.katex{white-space:nowrap;text-align:left}.shape .math-text{white-space:pre-wrap}.svg-math{pointer-events:none}.svg-math .math-text{display:block;max-width:100%}.svg-math .katex-display{margin:0;padding:0;overflow:visible}.svg-math .katex{white-space:nowrap}.math-error,.katex-error{color:#b42318;white-space:pre-wrap;overflow-wrap:anywhere}
+.math-text{overflow-wrap:anywhere}.math-text .katex{font-size:1.12em;white-space:nowrap}.math-text .katex-display{margin:.6em 0;padding:4px 2px;overflow-x:auto;overflow-y:hidden;text-align:left}.math-text .katex-display>.katex{white-space:nowrap;text-align:left}.shape .math-text{white-space:pre-wrap}.svg-math{pointer-events:none}.svg-math .math-text{display:block;max-width:100%}.svg-math .katex-display{margin:0;padding:0;overflow:visible}.svg-math .katex{white-space:nowrap}.math-error,.katex-error{color:#b42318;white-space:pre-wrap;overflow-wrap:anywhere}
 #workspace:fullscreen{padding:20px;background:var(--bg);overflow:auto;width:100%;height:100%}
 @media(max-width:1100px){main{padding:28px 24px}.workspace{grid-template-columns:minmax(0,1fr) 260px}.panel-top{padding:16px}.toolbar{padding:13px 16px 0}.panel-title small{display:none}.inspector-content{padding:18px}.stat{padding:0 16px}.stat small{display:block;margin:0}.signature{font-size:28px}.brand small{display:none}footer{padding:0 24px 24px}}
 @media(max-width:820px){header{height:65px;padding:0 20px}nav,.repo-tag{display:none}.brand{font-size:20px}main{padding:26px 16px}.hero{align-items:start;gap:12px}h1{font-size:27px}.hero .signature{font-size:22px;margin-top:17px}.signature small{font-size:7px;letter-spacing:.6px}.subtitle{font-size:11px}.eyebrow{font-size:8px;letter-spacing:1px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:17px;padding:16px 0}.stat{padding:0 16px}.stat strong{font-size:22px}.stat:nth-child(2n){border:0}.stat-label,.stat small{font-size:9px}.workspace{grid-template-columns:1fr}.inspector{position:static}.inspector-header{padding:14px 18px}.bottom-grid{grid-template-columns:1fr}.section{padding:18px}.tensor-section .section-heading{align-items:start;flex-direction:column;gap:12px}.playbar{gap:8px;padding:13px}.playbar .step-button{display:none}.step-label{font-size:8px}.shapes{grid-template-columns:1fr;gap:0}.toolbar{gap:10px}.tools{flex-wrap:wrap}.tabs{gap:12px}.panel-top{gap:10px}.profile-control select{max-width:135px}footer{padding:0 16px 24px;flex-direction:column;gap:5px}}
@@ -34,10 +34,19 @@ dialog{width:min(800px,94vw);max-height:86vh;padding:0;border:1px solid #dce4df;
 .layer-controls label{display:flex;align-items:center;gap:6px}.layer-controls select{font-size:11px}
 .view-intro{padding:16px 24px 0}.view-intro h2{font-size:20px;margin:0 0 5px}.view-intro p{font-size:12px;color:#71838b;margin:0}
 .inspector{max-height:calc(100vh - 32px);overflow-y:auto}.shape .math-text{display:block;max-width:100%;overflow-x:auto}
-.math-text .katex,.table-scroll{position:relative}
+.table-scroll{position:relative}
 .description,.explain,.implementation-note p{color:#687b83}
 @media(max-width:820px){.layer-controls{margin-left:0}.inspector{max-height:none}.view-intro{padding:14px 16px 0}.view-intro h2{font-size:17px}}
 @media print{.view-picker,.layer-controls{display:none!important}.inspector{max-height:none}}
+
+/* Precompiled vector math shares the text size and preserves real glyph bounds. */
+.math-expression{display:inline-block;vertical-align:middle;white-space:nowrap;line-height:1.2;overflow-wrap:normal}
+.math-expression>svg{display:inline-block;max-width:none;overflow:visible}
+.math-expression.display-math{display:block;width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:14px 3px;margin:4px 0;line-height:1.3;font-size:18px}
+.equation .math-text{display:block;min-width:0}
+.operations li{min-width:0}.operations .display-math{background:#f6f9f6;border:1px solid #e2ebe2;border-radius:8px;padding:18px 12px;margin:8px 0}
+.math-label{pointer-events:none;overflow:visible}
+@media(max-width:820px){.dialog-body{padding:18px}.math-expression.display-math{font-size:18px}}
 </style>
 <!-- KATEX_STYLES -->
 </head>
@@ -79,9 +88,9 @@ const spec=JSON.parse(document.getElementById('architecture-data').textContent);
 const sources=JSON.parse(document.getElementById('source-data').textContent);
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const mathHTML=value=>`<span class="math-text" data-math-template="${esc(value)}" data-math-source="${esc(expand(value))}">${esc(expand(value))}</span>`;
+const mathHTML=value=>`<span class="math-text" data-math-template="${esc(value)}" data-math-source="${esc(expand(value))}">${window.architectureMath?architectureMath.text(expand(value)):esc(expand(value))}</span>`;
 function renderMath(root){
- if(typeof renderMathInElement!=='function')return;
+ if(window.architectureMath||typeof renderMathInElement!=='function')return;
  root.querySelectorAll('.math-text').forEach(element=>renderMathInElement(element,{
   delimiters:[{left:'$$',right:'$$',display:true},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false},{left:'$',right:'$',display:false}],
   throwOnError:true,trust:false,maxExpand:1000,maxSize:20,
@@ -103,6 +112,7 @@ function expand(value){return String(value??'').replace(/\{\{([^{}]+)\}\}/g,(mat
 const color=kind=>palette[kind]||palette.neutral;
 const text=(x,y,value,size=13,fill='#81939a',weight=400,width,height)=>{
  const expanded=expand(value);
+ if(window.architectureMath&&architectureMath.hasMath(expanded))return architectureMath.svg(expanded,x,y,width||view.width-x-16,size,fill);
  if(/\\\(|\\\[|\$/.test(expanded)){
   const h=height||Math.max(30,size*2.8),w=width||Math.max(1,view.width-x-16);
   return `<foreignObject class="svg-math" x="${esc(x)}" y="${esc(y-size-3)}" width="${esc(w)}" height="${esc(h)}"><div xmlns="http://www.w3.org/1999/xhtml" style="font-size:${size}px;color:${fill};height:100%;display:flex;align-items:center;overflow:hidden">${mathHTML(value)}</div></foreignObject>`;
@@ -124,6 +134,17 @@ function inspect(){
  $('inspect-expand').onclick=()=>activate(selected);$('inspect-source').onclick=()=>showSource(m);
 }
 function select(id){selected=id;$('graph').querySelectorAll('.node').forEach(n=>n.classList.toggle('selected',n.dataset.module===id));inspect();}
+function nodeLines(n,operator,fontSize,lineHeight,inset){
+ if(!window.architectureMath)return (n.lines||[]).map((line,i)=>text(n.x+inset,n.y+(operator?59:47)+i*lineHeight,line,fontSize,'#687f88',400,n.width-2*inset,Math.max(lineHeight,30))).join('');
+ let top=n.y+(operator?44:34),markup='';
+ for(const line of n.lines||[]){
+  const value=expand(line),isMath=architectureMath.hasMath(value),size=isMath?(n.mathSize||(operator?18:16)):fontSize;
+  const dims=isMath?architectureMath.dimensions(value,size):null;
+  markup+=text(n.x+inset,isMath?top-dims.top:top+size,line,size,'#687f88',400,n.width-2*inset);
+  top+=Math.max(lineHeight,(dims?.height||size)+9);
+ }
+ return markup;
+}
 function draw(){
  const svg=$('graph');svg.setAttribute('viewBox',`0 0 ${view.width} ${view.height}`);svg.style.aspectRatio=`${view.width}/${view.height}`;svg.style.width=$('zoom').value+'%';svg.style.minWidth=(view.minWidth||(view.variant==='operator'?Math.round(view.width*.85):650))+'px';
  const defs='<defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8" fill="none" stroke="#9aafb3" stroke-width="1.2"/></marker></defs>';
@@ -133,7 +154,7 @@ function draw(){
   const m=profile.modules[n.module],p=color(n.kind||m.kind),expands=m.expandTo&&m.expandTo!==view.id;
   const operator=view.variant==='operator',titleSize=n.titleSize||(operator?16:13),fontSize=n.fontSize||(operator?13:11),lineHeight=n.lineHeight||(operator?26:20),inset=operator?18:14;
   const blocks=(n.blocks||[]).map((block,i)=>{const y=n.y+44+i*53,c=color(block.kind||m.kind);return `<rect x="${n.x+15}" y="${y}" width="${n.width-30}" height="44" rx="7" fill="white" stroke="${p[1]}"/>${text(n.x+28,y+18,block.title,11,c[2],550)}${text(n.x+28,y+34,block.text||'',9,'#92a092')}`;}).join('');
-  return `<g class="node ${selected===n.module?'selected':''}" data-node="${esc(n.id)}" data-module="${esc(n.module)}" role="button" tabindex="0" aria-label="${esc(m.title+' · '+(expands?'点击展开内部计算':'点击打开算子详情'))}"><title>${esc(m.title+' · '+(expands?'点击展开内部计算':'点击打开算子详情'))}</title><rect class="box" x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="10" fill="${p[0]}" stroke="${p[1]}" stroke-width="1.2"/><rect x="${n.x+13}" y="${n.y+17}" width="5" height="5" rx="1" fill="${p[2]}"/>${text(n.x+26,n.y+(operator?29:23),n.title||m.title,titleSize,p[2],600,n.width-(n.badge?76:40))}${n.badge?`<rect x="${n.x+n.width-44}" y="${n.y+10}" width="32" height="20" rx="5" fill="${p[1]}"/>${text(n.x+n.width-38,n.y+24,n.badge,10,p[2],550)}`:''}${blocks||((n.lines||[]).map((line,i)=>text(n.x+inset,n.y+(operator?59:47)+i*lineHeight,line,fontSize,'#687f88',400,n.width-2*inset,Math.max(lineHeight,30))).join(''))}${n.foot?text(n.x+14,n.y+n.height-13,n.foot,10,'#536c75',400,n.width-28,24):''}</g>`;
+  return `<g class="node ${selected===n.module?'selected':''}" data-node="${esc(n.id)}" data-module="${esc(n.module)}" role="button" tabindex="0" aria-label="${esc(m.title+' · '+(expands?'点击展开内部计算':'点击打开算子详情'))}"><title>${esc(m.title+' · '+(expands?'点击展开内部计算':'点击打开算子详情'))}</title><rect class="box" x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="10" fill="${p[0]}" stroke="${p[1]}" stroke-width="1.2"/><rect x="${n.x+13}" y="${n.y+17}" width="5" height="5" rx="1" fill="${p[2]}"/>${text(n.x+26,n.y+(operator?29:23),n.title||m.title,titleSize,p[2],600,n.width-(n.badge?76:40))}${n.badge?`<rect x="${n.x+n.width-44}" y="${n.y+10}" width="32" height="20" rx="5" fill="${p[1]}"/>${text(n.x+n.width-38,n.y+24,n.badge,10,p[2],550)}`:''}${blocks||nodeLines(n,operator,fontSize,lineHeight,inset)}${n.foot?text(n.x+14,n.y+n.height-13,n.foot,10,'#536c75',400,n.width-28,24):''}</g>`;
  }).join('');
  const notes=(view.notes||[]).map(n=>text(n.x,n.y,n.text,n.size||12,'#81939a',400,n.width,n.height)).join('');svg.innerHTML=defs+groups+edges+nodes+notes;renderMath(svg);
  svg.querySelectorAll('.node').forEach(n=>{n.addEventListener('click',()=>activate(n.dataset.module));n.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate(n.dataset.module);}});});

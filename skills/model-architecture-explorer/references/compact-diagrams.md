@@ -20,23 +20,50 @@
 
 图内公式用稳定的符号，动态数值由旁边的形状标签解释。不要把每个张量都改写成 `X ∈ ℝ^{…}`；也不要把长展开式自动缩成小字。相同宽度下，短公式与正文应有相近的视觉大小。
 
-## 可选：预编译 TeX 为 SVG 路径
+## 选择渲染器，统一数学表示
 
-对于公式集合有限、需要可靠离线浏览与 SVG 导出的页面，可在构建阶段用 MathJax 生成路径。浏览器不再依赖数学字体或 foreignObject。动态数值使用普通文字，公式使用符号；若用户可输入任意新公式，则采用浏览器端数学渲染器。
+HTML 中已有稳定的 KaTeX 可继续使用；需要任意用户输入或数值直接写进公式时，它比有限缓存合适。先检查数学字体是否加载、是否有全局 CSS 覆盖 `.katex` 的字体与行高，以及容器是否裁切。不要仅凭 `.katex` 元素存在就判断显示正常。
 
-将不带分隔符的 TeX 字符串数组写到 `formulas.json`。在项目工具目录中安装 MathJax 3（已有数学渲染环境时可复用），运行：
+公式集合有限、要求可靠离线显示或独立 SVG 导出时，可用 MathJax 预编译为原生字形路径。图、核心公式和详情弹窗使用同一缓存，避免同时维护一套 Unicode 伪公式和一套 LaTeX。分式用 `\frac`，根号用 `\sqrt`，上下标用 TeX 分组，算子名用 `\operatorname`；形状和源码调用仍保留普通文字。
+
+## 预编译与构建
+
+安装到临时工具目录即可，不必为可视化修改模型依赖。已有 MathJax 环境时可复用：
 
 ```bash
 npm install --prefix /tmp/model-math --no-audit --no-fund mathjax-full@3.2.2
 node <skill-dir>/scripts/render_math.mjs \
   --module-dir /tmp/model-math/node_modules \
-  --input formulas.json --output math-svg.json
+  --spec /path/to/spec.json --output /path/to/math-svg.json
+python <skill-dir>/scripts/build_explorer.py \
+  --repo /path/to/model-repo --spec /path/to/spec.json \
+  --math-svg /path/to/math-svg.json --output /path/to/index.html
 ```
 
-`render_math.mjs` 为每个表达式生成独立路径和 viewBox，拒绝解析错误。把输出 JSON 嵌入 `<script id="math-svg-data" type="application/json">`（JSON 中的 `<` 转义成 `\u003c`），再内联 [assets/svg-math.js](../assets/svg-math.js)。其中：
+`--spec` 从 spec 字符串中提取所有显式公式并去重；也可沿用 `--input formulas.json` 传入不带分隔符的 TeX 数组。解析错误会使编译失败。使用符号公式，将 Batch、token 数等动态数值放在相邻的形状标签；编译器会拒绝公式内的 `{{…}}` 占位符。需要这种动态公式时保留 KaTeX，或在项目定制逻辑中预编译有限的实际取值。
 
-- `architectureMath.svg("\\(…\\)", x, baselineY, width, fontSize, color)` 返回可嵌入主 SVG 的公式，保留真实比例与基线；超出预留宽度会报错，要求重新排版。
-- `architectureMath.text` 渲染混排正文；`formula` / `equations` 供详情使用。缓存缺少表达式时会报错，不静默显示伪公式。
-- 外层 HTML 为 `.math-expression > svg` 设置正常的数学字号与基线；长详情公式在局部容器滚动。不要用通用 `svg{width:100%}` 选择器拉伸所有公式。
+构建器嵌入缓存与 [assets/svg-math.js](../assets/svg-math.js)，不需要在用户打开网页时安装 Node 或加载数学字体。缺失公式会在构建时报告；修改 spec 后重新编译。缓存可与项目一起保存，以后重建不必重新安装 MathJax。两种内置渲染方式都保留模板中的 `KATEX_STYLES` / `KATEX_SCRIPTS` 注入标记；`--math-svg` 会用矢量渲染器替换它们。
 
-交付前遍历每个配置和条件分支，覆盖全部公式；切换 batch / 序列长度不应产生未编译表达式。导出的独立 SVG 应无外部字体、无丢失 glyph 引用、无 foreignObject，单独打开检查路径、颜色与尺寸。预编译只改善排版稳定性，不验证数学语义。
+已有自定义页面不必迁移到模板：将缓存嵌入 `<script id="math-svg-data" type="application/json">`，JSON 中 `<` 转义成 `\u003c`，再内联 helper。`architectureMath.text` 用于混排正文，`formula` 用于详情。每个图内数学标签应只包含一个完整公式，说明文字放在相邻标签。
+
+## 按公式实际尺寸排版
+
+不要让图内公式继承固定文本行高。分式、根号和带上下标的表达式高度不同，公式基线相同也可能向上撞到标题。用 viewBox 推导实际尺寸：
+
+```javascript
+const box = architectureMath.dimensions(formula, fontSize);
+const baseline = top - box.top;
+markup += architectureMath.svg(formula, x, baseline, availableWidth, fontSize, color);
+top += Math.max(lineHeight, box.height + gap);
+```
+
+`dimensions` 返回当前字号下的 `top / width / height`；`svg` 保留比例与基线，超出预留宽度时要求简写或扩大节点，不自动缩小。自带模板的原生 SVG 模式会按这一方式排列 `lines`，`mathSize` 可单独指定公式字号。节点高度和页脚仍应为实际内容留出空间。
+
+正文公式按 em 设置自然宽高，避免通用 `svg { width:100% }` 拉伸；长公式的直接容器使用 `overflow-x:auto`，给分子、上下标和下缘留 padding。不要让整页或弹窗本身横向溢出。已有绘图代码若按基线放置公式，可继续使用 `svg`，无需重做布局。
+
+## 核对真实显示
+
+- 遍历配置、层号与全部公式，确认缓存覆盖实际显示内容、字形路径非空；检查错误、分式线、根号、上下标和矩阵。
+- 在相同视口下查看总览、核心细图、详情及手机截图，检查字号是否可读，公式是否撞标题、形状或页脚，长公式是否可以在局部滚动。
+- 独立打开导出的 SVG，核对 viewBox、宽高与公式。原生路径模式不应需要 `foreignObject`、外部数学字体或外部 glyph 引用；仅存在公式标签不证明导出可见。
+- 浏览器检查器同时支持 KaTeX 与原生 SVG，会检查后者的公式碰撞和导出；额外控件与自定义绘图仍应按实际行为补充验证。预编译只保证渲染稳定，不判断公式的数学语义。

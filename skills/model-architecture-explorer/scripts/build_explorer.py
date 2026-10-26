@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import sys
 import warnings
+import xml.etree.ElementTree as ET
 
 
 DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / 'assets' / 'explorer.html'
@@ -286,15 +287,61 @@ def embed_math_assets(template: str) -> str:
     return template.replace(markers[1], '\n'.join(scripts))
 
 
-def build(root: Path, spec_path: Path, output: Path, template_path: Path) -> dict:
+MATH_PATTERN = re.compile(r'\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$([^$\n]+?)\$')
+
+
+def formula_strings(value):
+    if isinstance(value, str):
+        for match in MATH_PATTERN.finditer(value):
+            yield next(group for group in match.groups() if group is not None).strip()
+    elif isinstance(value, list):
+        for item in value:
+            yield from formula_strings(item)
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from formula_strings(item)
+
+
+def embed_vector_math(template: str, spec: dict, cache_path: Path) -> str:
+    """Use a reviewed cache without requiring Node or font downloads at build/runtime."""
+    cache = json.loads(cache_path.read_text(encoding='utf-8'))
+    require(isinstance(cache, dict), 'SVG formula cache must be an object')
+    formulas = set(formula_strings(spec))
+    require(not any('{{' in tex for tex in formulas),
+            'Precompiled formulas must use symbolic values; keep dynamic dimensions in plain shape labels or use KaTeX')
+    missing = formulas - cache.keys()
+    require(not missing, 'SVG formula cache is missing expressions; recompile with render_math.mjs --spec: ' + repr(sorted(missing)))
+    for tex, entry in cache.items():
+        require(isinstance(entry, dict) and isinstance(entry.get('svg'), str)
+                and isinstance(entry.get('viewBox'), str), f'Invalid SVG formula cache entry: {tex}')
+        bounds = [float(v) for v in entry['viewBox'].split()]
+        require(len(bounds) == 4 and all(finite_number(v) for v in bounds)
+                and bounds[2] > 0 and bounds[3] > 0, f'Invalid formula viewBox: {tex}')
+        root = ET.fromstring(entry['svg'])
+        tags = {el.tag.split('}')[-1] for el in root.iter()}
+        require(root.tag.split('}')[-1] == 'svg' and root.get('viewBox') == entry['viewBox']
+                and 'path' in tags and not tags & {'script', 'foreignObject', 'image', 'use', 'text'},
+                f'Formula cache must contain self-contained glyph paths: {tex}')
+    styles, scripts = '<!-- KATEX_STYLES -->', '<!-- KATEX_SCRIPTS -->'
+    require(template.count(styles) == template.count(scripts) == 1,
+            'The --math-svg option needs one KATEX_STYLES and KATEX_SCRIPTS marker in the template')
+    # JSON is embedded as data, never as executable script text.
+    payload = json.dumps(cache, ensure_ascii=False).replace('<', r'\u003c')
+    helper = (DEFAULT_TEMPLATE.parent / 'svg-math.js').read_text(encoding='utf-8')
+    return template.replace(styles, '').replace(scripts,
+        '<script id="math-svg-data" type="application/json">' + payload + '</script>\n<script>' + helper + '</script>')
+
+
+def build(root: Path, spec_path: Path, output: Path, template_path: Path, math_svg_path: Path | None = None) -> dict:
     root = root.resolve()
     spec_path, output, template_path = spec_path.resolve(), output.resolve(), template_path.resolve()
     require(root.is_dir(), f'Repo directory not found: {root}')
     spec = json.loads(spec_path.read_text(encoding='utf-8'))
     refs = validate_spec(spec)
     files, source_paths = snapshots(root, refs)
-    require(output not in source_paths | {spec_path, template_path}, 'Output must not overwrite a source, spec, or template file')
-    template = embed_math_assets(template_path.read_text(encoding='utf-8'))
+    require(output not in source_paths | {spec_path, template_path} | ({math_svg_path.resolve()} if math_svg_path else set()), 'Output must not overwrite a source, spec, or template file')
+    raw_template = template_path.read_text(encoding='utf-8')
+    template = embed_vector_math(raw_template, spec, math_svg_path) if math_svg_path else embed_math_assets(raw_template)
     spec.pop('revision', None)
     digest_input = json.dumps({'spec': spec, 'files': files, 'template': template}, ensure_ascii=False, sort_keys=True)
     spec['revision'] = hashlib.sha256(digest_input.encode()).hexdigest()[:12]
@@ -311,10 +358,11 @@ def main() -> int:
     parser.add_argument('--spec', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--template', type=Path, default=DEFAULT_TEMPLATE)
+    parser.add_argument('--math-svg', type=Path, help='Optional precompiled math-svg.json; use native SVG formulas instead of KaTeX')
     args = parser.parse_args()
     try:
-        result = build(args.repo, args.spec, args.output, args.template)
-    except (ValueError, OSError, SyntaxError, TypeError) as error:
+        result = build(args.repo, args.spec, args.output, args.template, args.math_svg)
+    except (ValueError, OSError, SyntaxError, TypeError, ET.ParseError) as error:
         print(f'Build failed: {error}', file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False))
