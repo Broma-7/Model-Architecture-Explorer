@@ -80,7 +80,7 @@
 - 每个 module 通过 `source.file` 对应仓库内的 UTF-8 源码，`source.symbol` 对应 Python AST 限定名，例如 `Model.forward`。Python 定义可以带 decorator；快照高亮范围包含 decorator。非 Python 文件可省略 symbol，展示完整文件；若需要精确片段，可扩展构建器，不能伪造行号。
 - `sourceFiles` 可另外列出配置等明确需要展示的文件。构建器只读取这份显式列表和 modules 中引用的文件。
 - `params` 是 `[标签, 值]` 数组。`operations` 是可选的、按真实执行顺序列出的字符串数组，在详情弹窗展示。
-- 节点 `title` 可覆盖模块标题；`lines` 是直接画到框中的摘要，每行约 20 px。为正文预留足够高度（大致 `60 + 22 × 行数`），长标题应加宽或简化。
+- 节点 `title` 可覆盖模块标题；`lines` 是直接画到框中的摘要，每行约 20 px。高度按实际文字计算：普通纯文本节点最后一行基线为 `y + 47 + (行数 − 1) × lineHeight`，加上下缘字形与约 14–20 px 底部留白即可；算子视图的正文起点为 `y + 59`。长标题应加宽或简化，含公式、blocks 或 foot 时按实际渲染高度调整。不要为统一块高留下大片空白。
 - `kind` 支持 `input`、`encoder`、`fusion`、`decoder`、`output`、`neutral`，也提供 `vision`、`language`、`state`、`action` 的配色。它只是视觉语义，不规定模型结构。
 
 ## 完整页面的阅读区与联动
