@@ -204,6 +204,35 @@ def validate_spec(spec: dict) -> list[dict]:
                     require(nw > 56 and nh >= 44 + (len(blocks)-1)*53 + 44 + (28 if node.get('foot') else 10),
                             f'{context}.{nid}: blocks need more node width/height')
             visible_modules = {node['module'] for node in nodes}
+            interface = view.get('interface')
+            if interface is not None:
+                require(isinstance(interface, dict) and isinstance(interface.get('module'), str), f'{context}: interface.module must be text')
+                inputs, outputs = interface.get('inputs'), interface.get('outputs')
+                require(isinstance(inputs, list) and 1 <= len(inputs) <= 20, f'{context}: interface.inputs must contain 1..20 inputs')
+                require(isinstance(outputs, list) and bool(outputs), f'{context}: interface.outputs must not be empty')
+                require(isinstance(interface.get('local', ''), str), f'{context}: interface.local must be text')
+                layer_ids = {control['id'] for control in profile.get('layerControls', [])}
+                def validate_origin(origin):
+                    require(isinstance(origin, dict) and isinstance(origin.get('label'), str), f'{context}: input origin needs a label')
+                    if 'view' in origin:
+                        require(origin['view'] in view_lookup, f'{context}: input origin view does not exist')
+                        require(origin.get('module') in {node['module'] for node in view_lookup[origin['view']]['nodes']}, f'{context}: input origin module is absent from its view')
+                    else:
+                        require('module' not in origin and 'layer' not in origin, f'{context}: navigable input origin needs a view')
+                    if 'layer' in origin:
+                        require(origin['layer'] in layer_ids and isinstance(origin.get('value'), (str, int)), f'{context}: invalid origin layer/value')
+                for port in inputs:
+                    require(isinstance(port, dict) and all(isinstance(port.get(key), str) for key in ('label', 'shape')), f'{context}: each input needs label/shape')
+                    require(isinstance(port.get('targets'), list) and bool(port['targets']) and all(mid in visible_modules for mid in port['targets']), f'{context}: input targets must appear in this view')
+                    rule = port.get('layerOrigin')
+                    if rule is not None:
+                        require(isinstance(rule, dict) and rule.get('control') in layer_ids, f'{context}: invalid input layerOrigin control')
+                        validate_origin(rule.get('first')); validate_origin(rule.get('later'))
+                    else:
+                        validate_origin(port.get('origin'))
+                for port in outputs:
+                    require(isinstance(port, dict) and all(isinstance(port.get(key), str) for key in ('label', 'shape', 'to')), f'{context}: each output needs label/shape/to')
+                    require(isinstance(port.get('sources'), list) and bool(port['sources']) and all(mid in visible_modules for mid in port['sources']), f'{context}: output sources must appear in this view')
             require(view.get('defaultModule', nodes[0]['module']) in visible_modules,
                     f'{context}: defaultModule must appear in this view')
             flow = view.get('flow', [])
@@ -220,6 +249,9 @@ def validate_spec(spec: dict) -> list[dict]:
                 require(0 <= gx and 0 <= gy and gx + gw <= w and gy + gh <= h, f'{context}: group outside viewBox')
             for edge in view.get('edges', []):
                 require(isinstance(edge, dict) and isinstance(edge.get('d'), str) and bool(edge['d']), f'{context}: edge.d must be an SVG path')
+                for condition in ('firstLayerOnly', 'lastLayerOnly'):
+                    if condition in edge:
+                        require(edge[condition] in {control['id'] for control in profile.get('layerControls', [])}, f'{context}: edge layer condition needs a valid layer control')
                 if edge.get('label'):
                     require(all(isinstance(edge.get(k), (int, float)) for k in ('labelX', 'labelY')), f'{context}: edge label needs labelX/labelY')
             for note in view.get('notes', []):

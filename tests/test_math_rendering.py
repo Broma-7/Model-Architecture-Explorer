@@ -264,6 +264,61 @@ class MathRenderingTests(unittest.TestCase):
         }''')
         self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
 
+    def test_module_inputs_keep_sources_targets_and_layer_context(self):
+        spec = json.loads(json.dumps(self.spec))
+        profile = spec['profiles'][0]
+        detail = profile['views'][1]
+        detail['parent'] = 'overview'
+        profile['layerControls'] = [{'id': 'I', 'label': '层实例', 'value': 1,
+                                    'max': 3, 'views': [detail['id']]}]
+        detail['edges'] = [{'d': 'M10 60 H60', 'firstLayerOnly': 'I'},
+                           {'d': 'M10 70 H70', 'lastLayerOnly': 'I'}]
+        detail['interface'] = {
+            'module': '第 {{I}} 层',
+            'inputs': [{'label': '特征 X_{{I-1}}', 'shape': '[{{B}},16,768]', 'targets': ['linear'],
+                        'layerOrigin': {'control': 'I',
+                                        'first': {'label': '父图投影', 'view': 'overview', 'module': 'projection'},
+                                        'later': {'label': '第 {{I-1}} 层输出', 'view': detail['id'], 'module': 'linear',
+                                                  'layer': 'I', 'value': '{{I-1}}'}}}],
+            'local': '本层内部计算',
+            'outputs': [{'label': '输出 X_{{I}}', 'shape': '[{{B}},16,256]',
+                         'sources': ['linear'], 'to': '后续层'}],
+        }
+        path, output = self.repo / 'input-spec.json', self.repo / 'input.html'
+        path.write_text(json.dumps(spec))
+        builder.build(self.repo, path, output, builder.DEFAULT_TEMPLATE)
+        self.page.goto(output.as_uri())
+        self.assertFalse(self.page.locator('#module-inputs').is_visible())
+        self.page.locator('#graph .node').click()
+        self.assertIn('父图投影', self.page.locator('#module-inputs').inner_text())
+        self.assertEqual(self.page.locator('#graph .wire').get_attribute('d'), 'M10 60 H60')
+        self.assertIn('①', self.page.locator('#graph').text_content())
+        self.page.locator('[data-input="0"]').click()
+        self.assertEqual(self.page.locator('#graph .input-focus').count(), 1)
+        self.assertFalse(self.page.locator('#operator-modal').is_visible())
+        self.page.get_by_role('combobox', name='层实例').select_option('3')
+        self.assertIn('第 2 层输出', self.page.locator('#module-inputs').inner_text())
+        self.assertEqual(self.page.locator('#graph .wire').get_attribute('d'), 'M10 70 H70')
+        self.page.locator('[data-origin="0"]').click()
+        self.assertEqual(self.page.get_by_role('combobox', name='层实例').input_value(), '2')
+        self.assertIn('第 1 层输出', self.page.locator('#module-inputs').inner_text())
+        self.page.get_by_role('combobox', name='层实例').select_option('1')
+        self.page.locator('[data-origin="0"]').click()
+        self.assertEqual(self.page.locator('#current-view').get_attribute('data-view'), 'overview')
+        self.assertEqual(self.page.locator('#graph .selected').get_attribute('data-module'), 'projection')
+        self.page.locator('#graph .node').click()
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        self.assertTrue(self.page.locator('#module-inputs').is_visible())
+        detail['interface']['inputs'][0]['targets'] = ['projection']
+        with self.assertRaisesRegex(ValueError, 'input targets'):
+            builder.validate_spec(spec)
+        detail['interface']['inputs'][0]['targets'] = ['linear']
+        detail['interface']['inputs'][0]['layerOrigin']['first']['module'] = 'linear'
+        with self.assertRaisesRegex(ValueError, 'origin module'):
+            builder.validate_spec(spec)
+
+
 
 if __name__ == '__main__':
     unittest.main()

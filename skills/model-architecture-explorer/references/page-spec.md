@@ -186,6 +186,35 @@
 
 `width/height` 是当前图的 viewBox 尺寸，同时决定 SVG 导出尺寸。不同视图可有不同长宽比。构建器检查节点 / group / note 的基本边界，实际文字和 edge 路径仍需浏览器检查。
 
+## 下钻模块的输入、来源与输出
+
+可在 view 中声明 `interface`，在图上方展示输入及其来源，并给对应节点标题添加同号入口。点击接入位置会高亮节点，点击来源会返回对应视图并选中源模块；图下方显示输出与去向。这些信息与配置、Batch 和层号同步更新。
+
+```json
+{
+  "interface": {
+    "module": "父图中的残差投影",
+    "inputs": [
+      {
+        "label": "特征 X",
+        "shape": "[{{B}},16,768]",
+        "targets": ["linear"],
+        "origin": {"label": "整体图 / 残差投影", "view": "overview", "module": "projection"}
+      }
+    ],
+    "local": "skip 与主分支在内部独立计算。",
+    "outputs": [
+      {"label": "skip 特征", "shape": "[{{B}},16,256]", "sources": ["linear"], "to": "主分支相加位置"}
+    ]
+  }
+}
+```
+
+- `targets` / `sources` 使用当前视图中出现的 module id；不使用 node id。`origin.view` 与 `origin.module` 指向来源视图中真实存在的模块。模块外的数据集或调用方可以只填写 `origin.label`，不提供跳转。
+- `local` 说明内部生成的内容，避免把噪声、位置编码或内部时间采样当成外部输入。`outputs[].to` 说明回到父图或下一层后的去向。
+- 重复层输入可用 `layerOrigin` 代替 `origin`：`{"control":"I","first":{"label":"编码器输出","view":"encoding","module":"encoder"},"later":{"label":"第 {{I-1}} 层输出","view":"layer","module":"ffn","layer":"I","value":"{{I-1}}"}}`。`control` 引用 profile 的层控件；第 1 层使用 `first`，后续层使用 `later`。来源的 `layer` / `value` 可在返回同一视图时定位到上一层，数值使用与形状相同的受限算术替换。
+- 混合展示模块入口与某个重复层时，分别注明作用范围。边线的 `firstLayerOnly: "I"` / `lastLayerOnly: "I"` 可限定仅在该层控件为首层 / 末层时显示，防止把原始 embedding 连到每一层，或把每一层直接连到堆栈末端归一化。没有实际依赖的两者不画计算连线。
+
 ## 算子排版、导航层级与层实例
 
 为细图声明 `variant: "operator"`，默认使用更大的标题与正文；节点可用 `fontSize`、`titleSize`、`lineHeight` 单独覆盖，`kind` 可覆盖该实例的颜色。KaTeX 模式默认正文基线在节点顶部下方 59 个单位，行距 26；原生 SVG 模式按字形实际高度顺序排列，分式不会沿用普通文本行高。可用节点 `mathSize` 指定数学字号，为公式和页脚保留足够的节点高度。总览继续使用原有的紧凑卡片样式。

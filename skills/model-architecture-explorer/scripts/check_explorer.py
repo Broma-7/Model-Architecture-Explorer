@@ -101,6 +101,19 @@ def check(url: str, screenshot: Path | None = None, browser_path: str | None = N
                     page.evaluate('document.fonts.ready')
                     checked_math += check_math(page, '#inspector-content')
                     checked_math += check_math(page, '#graph')
+                    for region in ('#module-inputs', '#module-outputs'):
+                        if page.locator(region).count():
+                            checked_math += check_math(page, region)
+                    for index, port in enumerate(view.get('interface', {}).get('inputs', [])):
+                        page.locator(f'#module-inputs [data-input="{index}"]').click()
+                        focused = page.locator('#graph .input-focus').evaluate_all('(nodes)=>nodes.map(n=>n.dataset.module)')
+                        assert set(focused) == set(port['targets']), f'{view["id"]}: input did not locate its target'
+                        assert not page.locator('#operator-modal').is_visible(), 'Input location unexpectedly opened an operator'
+                    for index, port in enumerate(view.get('interface', {}).get('outputs', [])):
+                        page.locator(f'#module-outputs [data-output="{index}"]').click()
+                        focused = page.locator('#graph .input-focus').evaluate_all('(nodes)=>nodes.map(n=>n.dataset.module)')
+                        assert set(focused) == set(port['sources']), f'{view["id"]}: output did not locate its source'
+
                     assert active_view_id(page) == view['id']
                     assert page.locator('#graph').get_attribute('viewBox') == f'0 0 {view["width"]} {view["height"]}'
                     overflow = page.evaluate('''() => {
