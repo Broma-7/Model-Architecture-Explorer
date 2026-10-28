@@ -36,6 +36,8 @@ description: "根据机器学习模型仓库的实际源码，制作可下钻到
 
 ## 制作网页与源码映射
 
+未指定交付位置时，页面保存为模型工作区的 `visualization/<model-slug>-architecture.html`，例如 `visualization/evo1-architecture.html`：一层目录加文件名，保持二级路径。`<model-slug>` 使用可辨识的小写模型名；不要默认再套 `architecture/` 子目录，也不要用 `index.html` 作架构页文件名。spec、定制模板和截图按同一模型前缀保存在 `visualization/` 中，例如 `evo1-architecture.spec.json`；用户指定路径或已有页面原位修改时遵循其位置。以下命令中的 `model-name` 需替换成实际模型名。
+
 先选择渲染方式。有高质量参考页时，直接沿用其绘图函数与页面布局；新页面也可手工编写适合模型的紧凑 SVG。下面的 spec 模板是可选兼容方案，不是默认视觉标准，更不能为了使用构建器而重建已有好布局。
 
 采用声明式方案时，可复制 [assets/explorer.html](assets/explorer.html)，按 [references/page-spec.md](references/page-spec.md) 填写模型 spec，然后使用标准库构建工具：
@@ -43,8 +45,8 @@ description: "根据机器学习模型仓库的实际源码，制作可下钻到
 ```bash
 python <skill-dir>/scripts/build_explorer.py \
   --repo /absolute/model/repo \
-  --spec /absolute/model/repo/visualization/architecture/spec.json \
-  --output /absolute/model/repo/visualization/architecture/index.html
+  --spec /absolute/model/repo/visualization/model-name-architecture.spec.json \
+  --output /absolute/model/repo/visualization/model-name-architecture.html
 ```
 
 模板是可适配的起点，支持关键参数、机制公式、实现要点、张量追踪和显式前向步骤；新建完整页面时，按实际源码填写这些内容，不只填写最小的 modules / views。允许根据既有项目调整样式、布局和交互。若修改模板，放到目标项目中并通过 `--template` 指定；不要为单个仓库修改已安装 skill 的共享模板。
@@ -75,8 +77,8 @@ python <skill-dir>/scripts/build_explorer.py \
 模板生成的页面可直接运行附带的可选 Playwright 检查器（已有自定义页面的 DOM 不一定适用）：
 
 ```bash
-python <skill-dir>/scripts/check_explorer.py --page /absolute/path/index.html
-python <skill-dir>/scripts/check_explorer.py --url http://127.0.0.1:8765/ --screenshot /absolute/path/preview.png
+python <skill-dir>/scripts/check_explorer.py --page /absolute/model/repo/visualization/model-name-architecture.html
+python <skill-dir>/scripts/check_explorer.py --url http://127.0.0.1:8765/model-name-architecture.html --screenshot /absolute/path/preview.png
 ```
 
 它验证每个配置、节点的实际下钻或弹窗、返回、源码范围、导出尺寸、文字边界、键盘激活与移动端点击。它不判断模型的数学语义，也不覆盖项目后来新增的专用控件；这些需要按上述要点另行验证。
@@ -85,6 +87,6 @@ python <skill-dir>/scripts/check_explorer.py --url http://127.0.0.1:8765/ --scre
 
 ## 交付与访问
 
-说明页面位置、最有价值的展开路径、已验证项，以及任何推导假设。远程服务器上的 `localhost` 属于服务器；若用户需要访问指导，按其连接方式给出端口转发或下载单文件的方法，不把远程绝对文件链接说成一定能在本机浏览器打开。
+交付时直接提供模型架构 HTML 的可点击链接，链接文字包含模型名；无需让用户先进入目录查找页面。使用 HTTP 预览时，链接必须包含实际 HTML 文件名，并以这个完整地址进行验证。说明最有价值的展开路径、已验证项，以及任何推导假设。远程服务器上的 `localhost` 属于服务器；若用户需要访问指导，按其连接方式给出端口转发或下载单文件的方法，不把远程绝对文件链接说成一定能在本机浏览器打开。
 
 若启动本地预览服务，先确认端口 / 服务目录，使用任务环境已有的服务管理方式，不中断无关进程。交付时可保存一张实测点击效果图，帮助读者确认界面状态。不要把 TurboVLA 的层数、维度、动作头或目录当成其他模型的默认值。

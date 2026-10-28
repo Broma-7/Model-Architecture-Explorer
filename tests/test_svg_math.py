@@ -62,7 +62,7 @@ class NativeSVGTests(unittest.TestCase):
         cls.cache_path = cls.repo / 'math-svg.json'
         subprocess.run(['node', str(SKILL / 'scripts/render_math.mjs'), '--module-dir', MATHJAX,
                         '--spec', str(cls.spec_path), '--output', str(cls.cache_path)], check=True, capture_output=True)
-        cls.output = cls.repo / 'index.html'
+        cls.output = cls.repo / 'visualization' / 'projection-architecture.html'
         builder.build(cls.repo, cls.spec_path, cls.output, builder.DEFAULT_TEMPLATE, cls.cache_path)
         cls.playwright = sync_playwright().start()
         cls.browser = cls.playwright.chromium.launch(headless=True)

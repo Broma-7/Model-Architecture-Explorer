@@ -37,7 +37,7 @@ node <skill-dir>/scripts/render_math.mjs \
   --spec /path/to/spec.json --output /path/to/math-svg.json
 python <skill-dir>/scripts/build_explorer.py \
   --repo /path/to/model-repo --spec /path/to/spec.json \
-  --math-svg /path/to/math-svg.json --output /path/to/index.html
+  --math-svg /path/to/math-svg.json --output /path/to/model-repo/visualization/model-name-architecture.html
 ```
 
 `--spec` 从 spec 字符串中提取所有显式公式并去重；也可沿用 `--input formulas.json` 传入不带分隔符的 TeX 数组。解析错误会使编译失败。使用符号公式，将 Batch、token 数等动态数值放在相邻的形状标签；编译器会拒绝公式内的 `{{…}}` 占位符。需要这种动态公式时保留 KaTeX，或在项目定制逻辑中预编译有限的实际取值。

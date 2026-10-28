@@ -59,7 +59,7 @@ cp -R skills/model-architecture-explorer "${CODEX_HOME:-$HOME/.codex}/skills/"
 
 ### 3. 查看生成结果
 
-默认工作流程优先生成离线可用的 HTML 网页，常用输出位置为目标模型仓库中的 `visualization/architecture/index.html`；具体位置以 Codex 的交付说明为准。
+默认生成离线可用的单文件网页，保存为目标模型工作区的 `visualization/<model-slug>-architecture.html`，例如 `visualization/evo1-architecture.html`。路径只有一层目录加文件名，不再默认增加 `architecture/` 子目录，页面也不命名为 `index.html`。交付时会直接提供包含模型名的页面链接；用户指定路径或修改已有页面时遵循其位置。
 
 - 点击整体图中的模块，进入内部计算图。
 - 点击细图中的算子，查看计算说明、输入输出形状和源码入口。
@@ -68,10 +68,10 @@ cp -R skills/model-architecture-explorer "${CODEX_HOME:-$HOME/.codex}/skills/"
 本地生成的单文件 HTML 可以直接用浏览器打开。远程环境生成的页面可下载到本机打开；需要 HTTP 预览时，在模型仓库根目录执行：
 
 ```bash
-python -m http.server 8765 --bind 127.0.0.1 --directory visualization/architecture
+python -m http.server 8765 --bind 127.0.0.1 --directory visualization
 ```
 
-本地运行时访问 `http://127.0.0.1:8765/`。远程运行时，先通过 IDE 或 SSH 将服务器的 `8765` 端口转发到本机，再打开对应的本地地址。
+将下文路径和 URL 中的 `model-name` 替换为实际模型名，本地运行时直接访问 `http://127.0.0.1:8765/model-name-architecture.html`（例如 `http://127.0.0.1:8765/evo1-architecture.html`）。远程运行时，先通过 IDE 或 SSH 将服务器的 `8765` 端口转发到本机，再打开对应的本地地址。
 
 ## 文件结构
 
@@ -101,8 +101,8 @@ skills/model-architecture-explorer/
 ```bash
 python skills/model-architecture-explorer/scripts/build_explorer.py \
   --repo /path/to/model-repo \
-  --spec /path/to/model-repo/visualization/architecture/spec.json \
-  --output /path/to/model-repo/visualization/architecture/index.html
+  --spec /path/to/model-repo/visualization/model-name-architecture.spec.json \
+  --output /path/to/model-repo/visualization/model-name-architecture.html
 ```
 
 需要定制模板时，复制模板到目标项目并传入 `--template`。每次构建都会重新生成 HTML，不应只修改生成后的页面再期望下次构建保留这些改动。
@@ -123,10 +123,10 @@ python -m playwright install chromium
 
 ```bash
 python skills/model-architecture-explorer/scripts/check_explorer.py \
-  --page /path/to/index.html
+  --page /path/to/model-repo/visualization/model-name-architecture.html
 
 python skills/model-architecture-explorer/scripts/check_explorer.py \
-  --url http://127.0.0.1:8765/ \
+  --url http://127.0.0.1:8765/model-name-architecture.html \
   --screenshot /path/to/preview.png
 ```
 

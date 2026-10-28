@@ -66,7 +66,7 @@ class MathRenderingTests(unittest.TestCase):
         cls.spec['profiles'].append(plain)
         cls.spec_path = cls.repo / 'spec.json'
         cls.spec_path.write_text(json.dumps(cls.spec, ensure_ascii=False))
-        cls.output = cls.repo / 'index.html'
+        cls.output = cls.repo / 'visualization' / 'projection-architecture.html'
         builder.build(cls.repo, cls.spec_path, cls.output, builder.DEFAULT_TEMPLATE)
         cls.playwright = sync_playwright().start()
         cls.browser = cls.playwright.chromium.launch(headless=True)
