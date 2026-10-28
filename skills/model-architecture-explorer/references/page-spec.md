@@ -242,14 +242,14 @@ KaTeX 0.16.22 的脚本、CSS 和 WOFF2 字体随 skill 分发，构建时内嵌
 
 ### 运行构建器
 
-默认交付路径为 `visualization/<model-slug>-architecture.html`；例如 `visualization/evo1-architecture.html`。同一模型的 spec 和定制模板也放在 `visualization/` 中并使用模型前缀。以下 `model-name` 替换为实际模型名。
+默认交付路径为 `visualization/<model-slug>-architecture.html`；例如 `visualization/evo1-architecture.html`。`visualization/` 的直属文件只保留架构 HTML；该模型的 spec、定制模板、截图和其他辅助文件统一放进 `visualization/<model-slug>-architecture/`，例如 `visualization/evo1-architecture/spec.json`。HTML 内嵌浏览所需资源。以下 `model-name` 替换为实际模型名。
 
 ```bash
 python <skill-dir>/scripts/build_explorer.py \
-  --repo /path/to/model-repo --spec /path/to/model-repo/visualization/model-name-architecture.spec.json --output /path/to/model-repo/visualization/model-name-architecture.html
+  --repo /path/to/model-repo --spec /path/to/model-repo/visualization/model-name-architecture/spec.json --output /path/to/model-repo/visualization/model-name-architecture.html
 ```
 
-要保留项目内的 UI 定制，先复制模板到输出项目，例如 `visualization/model-name-architecture.template.html`，通过 `--template` 指定。HTML 必须保留 `architecture-data` 与 `source-data` 两个 JSON script 元素。标准构建器每次由模板重建网页，直接修改已生成的模型架构 HTML 会在下次构建中丢失。
+要保留项目内的 UI 定制，先复制模板到输出项目，例如 `visualization/model-name-architecture/template.html`，通过 `--template` 指定。HTML 必须保留 `architecture-data` 与 `source-data` 两个 JSON script 元素。标准构建器每次由模板重建网页，直接修改已生成的模型架构 HTML 会在下次构建中丢失。
 
 沿用自带 LaTeX 渲染时，还要保留 `<head>` 中的 `<!-- KATEX_STYLES -->` 与应用脚本前的 `<!-- KATEX_SCRIPTS -->`；构建器会从已安装 skill 的资源目录填入完整内容。两个标记都没有的旧定制模板仍可构建，但需要自行接入数学渲染器。
 

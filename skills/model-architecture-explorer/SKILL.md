@@ -36,7 +36,7 @@ description: "根据机器学习模型仓库的实际源码，制作可下钻到
 
 ## 制作网页与源码映射
 
-未指定交付位置时，页面保存为模型工作区的 `visualization/<model-slug>-architecture.html`，例如 `visualization/evo1-architecture.html`：一层目录加文件名，保持二级路径。`<model-slug>` 使用可辨识的小写模型名；不要默认再套 `architecture/` 子目录，也不要用 `index.html` 作架构页文件名。spec、定制模板和截图按同一模型前缀保存在 `visualization/` 中，例如 `evo1-architecture.spec.json`；用户指定路径或已有页面原位修改时遵循其位置。以下命令中的 `model-name` 需替换成实际模型名。
+未指定交付位置时，页面保存为模型工作区的 `visualization/<model-slug>-architecture.html`，例如 `visualization/evo1-architecture.html`：一层目录加文件名，保持二级路径。`<model-slug>` 使用可辨识的小写模型名；不要默认再套 `architecture/` 子目录，也不要用 `index.html` 作架构页文件名。`visualization/` 的直属文件只保留架构 HTML；spec、定制模板、截图、构建脚本、源码快照和验证记录等辅助文件统一放进同名子目录 `visualization/<model-slug>-architecture/`，例如 `visualization/evo1-architecture/spec.json`。HTML 应内嵌浏览所需资源，单独复制仍可离线打开；用户指定路径或已有页面原位修改时遵循其位置。以下命令中的 `model-name` 需替换成实际模型名。
 
 先选择渲染方式。有高质量参考页时，直接沿用其绘图函数与页面布局；新页面也可手工编写适合模型的紧凑 SVG。下面的 spec 模板是可选兼容方案，不是默认视觉标准，更不能为了使用构建器而重建已有好布局。
 
@@ -45,7 +45,7 @@ description: "根据机器学习模型仓库的实际源码，制作可下钻到
 ```bash
 python <skill-dir>/scripts/build_explorer.py \
   --repo /absolute/model/repo \
-  --spec /absolute/model/repo/visualization/model-name-architecture.spec.json \
+  --spec /absolute/model/repo/visualization/model-name-architecture/spec.json \
   --output /absolute/model/repo/visualization/model-name-architecture.html
 ```
 
@@ -78,7 +78,7 @@ python <skill-dir>/scripts/build_explorer.py \
 
 ```bash
 python <skill-dir>/scripts/check_explorer.py --page /absolute/model/repo/visualization/model-name-architecture.html
-python <skill-dir>/scripts/check_explorer.py --url http://127.0.0.1:8765/model-name-architecture.html --screenshot /absolute/path/preview.png
+python <skill-dir>/scripts/check_explorer.py --url http://127.0.0.1:8765/model-name-architecture.html --screenshot /absolute/model/repo/visualization/model-name-architecture/preview.png
 ```
 
 它验证每个配置、节点的实际下钻或弹窗、返回、源码范围、导出尺寸、文字边界、键盘激活与移动端点击。它不判断模型的数学语义，也不覆盖项目后来新增的专用控件；这些需要按上述要点另行验证。

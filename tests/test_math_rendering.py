@@ -64,7 +64,9 @@ class MathRenderingTests(unittest.TestCase):
             m.update(description='旧 spec 继续显示普通文本', input='[B, N, 768]',
                      output='[B, N, 256]', params=[['bias', False]], operations=['Linear(X)'])
         cls.spec['profiles'].append(plain)
-        cls.spec_path = cls.repo / 'spec.json'
+        cls.resources = cls.repo / 'visualization' / 'projection-architecture'
+        cls.resources.mkdir(parents=True)
+        cls.spec_path = cls.resources / 'spec.json'
         cls.spec_path.write_text(json.dumps(cls.spec, ensure_ascii=False))
         cls.output = cls.repo / 'visualization' / 'projection-architecture.html'
         builder.build(cls.repo, cls.spec_path, cls.output, builder.DEFAULT_TEMPLATE)

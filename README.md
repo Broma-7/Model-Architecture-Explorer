@@ -61,6 +61,18 @@ cp -R skills/model-architecture-explorer "${CODEX_HOME:-$HOME/.codex}/skills/"
 
 默认生成离线可用的单文件网页，保存为目标模型工作区的 `visualization/<model-slug>-architecture.html`，例如 `visualization/evo1-architecture.html`。路径只有一层目录加文件名，不再默认增加 `architecture/` 子目录，页面也不命名为 `index.html`。交付时会直接提供包含模型名的页面链接；用户指定路径或修改已有页面时遵循其位置。
 
+`visualization/` 的直属文件只保留架构 HTML，其他辅助文件集中放入同名文件夹；单独复制 HTML 即可离线浏览：
+
+```text
+visualization/
+├── evo1-architecture.html
+└── evo1-architecture/
+    ├── spec.json
+    ├── template.html       # 可选
+    ├── preview.png         # 可选
+    └── vendor/             # 外部源码快照（按需）
+```
+
 - 点击整体图中的模块，进入内部计算图。
 - 点击细图中的算子，查看计算说明、输入输出形状和源码入口。
 - 通过返回导航切换视图，或导出 SVG 用于文档和分享。
@@ -101,13 +113,13 @@ skills/model-architecture-explorer/
 ```bash
 python skills/model-architecture-explorer/scripts/build_explorer.py \
   --repo /path/to/model-repo \
-  --spec /path/to/model-repo/visualization/model-name-architecture.spec.json \
+  --spec /path/to/model-repo/visualization/model-name-architecture/spec.json \
   --output /path/to/model-repo/visualization/model-name-architecture.html
 ```
 
 需要定制模板时，复制模板到目标项目并传入 `--template`。每次构建都会重新生成 HTML，不应只修改生成后的页面再期望下次构建保留这些改动。
 
-需要不依赖数学字体的公式和独立 SVG 导出时，先用 `render_math.mjs --spec ... --output math-svg.json` 编译符号公式，再向上述构建命令增加 `--math-svg /path/to/math-svg.json`。缓存会直接内嵌进 HTML；之后重建只需要 Python。编译环境、普通文字与公式的区分、动态数值的处理见 [公式排版说明](skills/model-architecture-explorer/references/compact-diagrams.md#预编译与构建)。
+需要不依赖数学字体的公式和独立 SVG 导出时，先用 `render_math.mjs --spec ... --output /path/to/model-repo/visualization/model-name-architecture/math-svg.json` 编译符号公式，再向上述构建命令增加 `--math-svg /path/to/model-repo/visualization/model-name-architecture/math-svg.json`。缓存会直接内嵌进 HTML；之后重建只需要 Python。编译环境、普通文字与公式的区分、动态数值的处理见 [公式排版说明](skills/model-architecture-explorer/references/compact-diagrams.md#预编译与构建)。
 
 
 ## 可选浏览器验证
@@ -127,7 +139,7 @@ python skills/model-architecture-explorer/scripts/check_explorer.py \
 
 python skills/model-architecture-explorer/scripts/check_explorer.py \
   --url http://127.0.0.1:8765/model-name-architecture.html \
-  --screenshot /path/to/preview.png
+  --screenshot /path/to/model-repo/visualization/model-name-architecture/preview.png
 ```
 
 检查器面向自带模板的 DOM，验证下钻、详情、源码与导出，并检查越出画布或穿过无关节点的连线。公式同时支持 KaTeX 与原生 SVG；原生公式会检查与标题、形状等文字的碰撞，并独立打开下载的 SVG 验证字形路径。定制了页面结构或额外控件时需相应调整。浏览器环境可能还需要系统运行库；检查结果不代替模型语义核对或同配置的参考截图对比。

@@ -57,9 +57,11 @@ class NativeSVGTests(unittest.TestCase):
         detail['notes'][0]['y'] = 350
         detail['nodes'][0].update(height=180, mathSize=19, lines=[
             r'\(S=\frac{QK^{\mathsf T}}{\sqrt{d_k}}\)', '[{{B}},16,256]'], foot='公式按实际高度排列')
-        cls.spec_path = cls.repo / 'spec.json'
+        cls.resources = cls.repo / 'visualization' / 'projection-architecture'
+        cls.resources.mkdir(parents=True)
+        cls.spec_path = cls.resources / 'spec.json'
         cls.spec_path.write_text(json.dumps(cls.spec, ensure_ascii=False))
-        cls.cache_path = cls.repo / 'math-svg.json'
+        cls.cache_path = cls.resources / 'math-svg.json'
         subprocess.run(['node', str(SKILL / 'scripts/render_math.mjs'), '--module-dir', MATHJAX,
                         '--spec', str(cls.spec_path), '--output', str(cls.cache_path)], check=True, capture_output=True)
         cls.output = cls.repo / 'visualization' / 'projection-architecture.html'
